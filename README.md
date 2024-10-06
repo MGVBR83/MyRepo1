@@ -1,8 +1,8 @@
-﻿# Terraform Configuration Files
+﻿# MyRepo1 Workload
 
 ## Overview
 
-This repository contains Terraform configuration files for creating Virtual Machines for MyRepo1 repository.
+This repository contains Terraform configuration files for Creating Virtual Machines for MyRepo1 repository.
 
 ## Usage
 

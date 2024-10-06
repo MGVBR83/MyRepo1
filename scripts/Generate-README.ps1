@@ -21,7 +21,7 @@ cd .\workload\
 
 # Start the README content
 @"
-# Terraform Configuration Files
+# MyRepo1 Workload
 
 ## Overview
 
