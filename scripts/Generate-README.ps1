@@ -104,12 +104,12 @@ Get-ChildItem -Filter "*.tf" -Recurse | ForEach-Object {
 
     foreach ($line in $content) {
         if ($line -match 'output "(.*)"') {
-            $outName = $matches[1]
+            $outName = $matches[1].PadRight($varNameWidth)
 
             # Find description
             $descLine = $content[$content.IndexOf($line) + 1]
-            if ($descLine -match 'description "(.*)"') {
-                $outDesc = $matches[1]
+            if ($descLine -match 'description = "(.*)"') {
+                $outDesc = $matches[1].PadRight($varDescWidth)
                 $outputRow = "| $outName | $outDesc |"
                 $outputRow | Out-File -Append -Encoding utf8 -FilePath ..\$READMEFile
             }
@@ -155,5 +155,8 @@ Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for mor
 
 For any inquiries, please reach out to mgvbravi83@gmail.com.
 "@ | Out-File -Append -Encoding utf8 -FilePath ..\$READMEFile
+
+# Navigating out of the working directory
+cd ..
 
 Write-Host "README.md has been created successfully."

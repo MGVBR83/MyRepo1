@@ -2,7 +2,7 @@
 
 ## Overview
 
-This repository contains Terraform configuration files for creation of virtual machines in MyRepo1 repository.
+This repository contains Terraform configuration files for creating vm in MyRepo1 repository.
 
 ## Usage
 
@@ -44,6 +44,11 @@ To use these Terraform configurations, follow these steps:
 
 | Output Name      | Description                            |
 |------------------|----------------------------------------|
+| rg_name              | Name of the resource group               |
+| rg_id                | Id of the resource group                 |
+| vnet_name            | Name of the Virtual Network              |
+| vm_name              | Name of the Virtual Machine              |
+| vm_id                | Id of the Virtual Machine                |
 ## Examples
 
 ### Example 1: Basic Configuration
