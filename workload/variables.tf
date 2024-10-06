@@ -1,23 +1,29 @@
 variable "prefix" {
-  default = "tfvmex"
+  description = "Prefix of the Application name"
+  type        = string
+  default     = "tfvmex"
 }
 
 variable "location" {
-  type = string
-  default = "West Europe"
+  description = "Location of environment"
+  type        = string
+  default     = "West Europe"
 }
 
 variable "vnet_address_space" {
-  type = string
-  default = "10.0.0.0/16"
+  description = "Adress space of the Virtual Network"
+  type        = string
+  default     = "10.0.0.0/16"
 }
 
 variable "nicname" {
-  type = string
-  default = "testconfiguration1"
+  description = "Name of the Network Interface Card"
+  type        = string
+  default     = "testconfiguration1"
 }
 
 variable "vmsize" {
-  type = string
-  default = "Standard_DS1_v2"
+  description = "Size of the VM"
+  type        = string
+  default     = "Standard_DS1_v2"
 }
