@@ -2,7 +2,7 @@
 
 ## Overview
 
-This repository contains Terraform configuration files for creation of virtual machines in MyRepo1 repository.
+This repository contains Terraform configuration files for creating Virtual Machines for MyRepo1 repository.
 
 ## Usage
 
@@ -56,9 +56,7 @@ To use these Terraform configurations, follow these steps:
 To deploy a simple infrastructure, use the following example:
 
     module "example" {
-
         source = "./path/to/module"
-
         example_input = "value"
     }
 
@@ -67,17 +65,11 @@ To deploy a simple infrastructure, use the following example:
 For a more complex setup, refer to this configuration:
 
     resource "aws_instance" "example" {
-
         ami           = "ami-12345678"
-
         instance_type = "t2.micro"
-
         tags = {
-
             Name = "ExampleInstance"
-
         }
-
     }
 
 ## License
