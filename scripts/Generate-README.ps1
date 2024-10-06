@@ -126,7 +126,9 @@ Get-ChildItem -Filter "*.tf" -Recurse | ForEach-Object {
 To deploy a simple infrastructure, use the following example:
 
 module "example" {
+
   source = "./path/to/module"
+
   example_input = "value"
 }
 
@@ -135,11 +137,15 @@ module "example" {
 For a more complex setup, refer to this configuration:
 
 resource "aws_instance" "example" {
+
   ami           = "ami-12345678"
+
   instance_type = "t2.micro"
 
   tags = {
+
     Name = "ExampleInstance"
+    
   }
 }
 
