@@ -22,3 +22,8 @@ output "vm_id" {
   description = "Id of the Virtual Machine"
   value = azurerm_virtual_machine.myvm.id
 }
+
+output "vm_env" {
+  description = "Env of the Virtual Machine"
+  value = azurerm_virtual_machine.myvm.id
+}

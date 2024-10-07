@@ -27,3 +27,9 @@ variable "vmsize" {
   type        = string
   default     = "Standard_DS1_v2"
 }
+
+variable "vm_env" {
+  description = "Environment of the VM"
+  type        = string
+  default     = "test"
+}

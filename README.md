@@ -2,7 +2,7 @@
 
 ## Overview
 
-This repository contains Terraform configuration files for Creating Virtual Machines for MyRepo1 repository.
+This repository contains Terraform configuration files for updating Virtual Machines for MyRepo1 repository..
 
 ## Usage
 
@@ -40,6 +40,7 @@ To use these Terraform configurations, follow these steps:
 | vnet_address_space   | Adress space of the Virtual Network      | string          | "10.0.0.0/16"   | Yes        |
 | nicname              | Name of the Network Interface Card       | string          | "testconfiguration1" | Yes        |
 | vmsize               | Size of the VM                           | string          | "Standard_DS1_v2" | Yes        |
+| vm_env               | Environment of the VM                    | string          | "test"          | Yes        |
 ## Outputs
 
 | Output Name      | Description                            |
@@ -49,6 +50,7 @@ To use these Terraform configurations, follow these steps:
 | vnet_name            | Name of the Virtual Network              |
 | vm_name              | Name of the Virtual Machine              |
 | vm_id                | Id of the Virtual Machine                |
+| vm_env               | Env of the Virtual Machine               |
 ## Examples
 
 ### Example 1: Basic Configuration
