@@ -22,6 +22,6 @@ variable "rg_name" {
 
 variable "subnet_list" {
 	description = "List of Subnets that needs to be created"
-	type = list
-    default = []
+	type = map(any)
+    default = {}
 }
