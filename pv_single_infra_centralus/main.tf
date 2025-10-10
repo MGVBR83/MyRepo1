@@ -20,8 +20,9 @@ module "app_service_plan" {
   appsvc_plan_kind     = var.appsvc_plan_kind
   appsvc_plan_sku      = var.appsvc_plan_sku
   appsvc_plan_size     = var.appsvc_plan_size
-  appsvc_plan_capacity = var.appsvc_plan_capacity
   tags                 = var.tags
+  autoscale_capacity   = var.autoscale_capacity
+  autoscale_rules      = var.autoscale_rules
 }
 
 module "app_service" {

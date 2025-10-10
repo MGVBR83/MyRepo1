@@ -42,10 +42,6 @@ variable "appsvc_plan_size" {
   type    = string
 }
 
-variable "appsvc_plan_capacity" {
-  type    = string
-}
-
 variable "appsvc_name" {
   type        = string
   description = "Name of the App Service"
@@ -80,6 +76,18 @@ variable "app_svc_slot_name" {
 
 variable "app_svc_slot_site_config" {
   description = "Site configuration for the App Service slot"
+  type        = map(any)
+  default     = {}
+}
+
+variable "autoscale_capacity" {
+  description = "Controls the autoscale capacity settig of the Custom autoscale rule"
+  type        = map(any)
+  default     = {}
+}
+
+variable "autoscale_rules" {
+  description = "Rules for Custom autoscaling"
   type        = map(any)
   default     = {}
 }

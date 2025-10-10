@@ -41,7 +41,42 @@ appsvc_plan_name = "asp-dev-pvs-centralus"
 appsvc_plan_kind = "Linux"
 appsvc_plan_sku   = "PremiumV2"
 appsvc_plan_size  = "P0v3"
-appsvc_plan_capacity = 2
+autoscale_capacity = {
+  minimum = "2"
+  maximum = "10"
+  default = "2"
+}
+autoscale_rules = {
+  scale_out = {
+    metric_name        = "MemoryPercentage"
+    metric_namespace   = "Microsoft.Web/serverfarms"
+    time_grain         = "PT1M"
+    statistic          = "Average"
+    time_window        = "PT5M"
+    time_aggregation   = "Average"
+    operator           = "GreaterThan"
+    threshold          = 50
+    direction          = "Increase"
+    scale_type         = "ChangeCount"
+    scale_value        = "1"
+    cooldown           = "PT5M"
+  },
+  scale_in = {
+    metric_name        = "MemoryPercentage"
+    metric_namespace   = "Microsoft.Web/serverfarms"
+    time_grain         = "PT1M"
+    statistic          = "Average"
+    time_window        = "PT5M"
+    time_aggregation   = "Average"
+    operator           = "LessThan"
+    threshold          = 25
+    direction          = "Decrease"
+    scale_type         = "ChangeCount"
+    scale_value        = "1"
+    cooldown           = "PT5M"
+  }
+}
+
 
 #App Service Values
 appsvc_name               = "as-dev-pvs-centralus"
@@ -56,10 +91,10 @@ app_svc_identity = {
 app_svc_site_config = {
   always_on                            = true
   http2_enabled                        = true
-  min_tls_version                      = "1.2"
-  number_of_workers                    = 2
-  acr_use_managed_identity_credentials = true
-  acr_user_managed_identity_client_id  = "11111111-2222-3333-4444-555555555555"
+  minimum_tls_version                      = "1.2"
+  worker_count                    = 2
+  container_registry_use_managed_identity = true
+  container_registry_managed_identity_client_id  = "11111111-2222-3333-4444-555555555555"
   websockets_enabled                   = true
   ftps_state                           = "Disabled"
 }
@@ -69,7 +104,7 @@ app_svc_slot_name = "beta"
 app_svc_slot_site_config = {
   always_on         = true
   http2_enabled     = true
-  number_of_workers = 1
+  worker_count = 1
   websockets_enabled = true
   scm_type           = "LocalGit"
 }
