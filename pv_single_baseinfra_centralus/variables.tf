@@ -30,14 +30,18 @@ variable "security_rule_list" {
   type = list
 }
 
-variable "dev_subnet_id" {
-  type = string
+variable "subnet_id_list" {
+  type = list
 }
 
-variable "stage_subnet_id" {
-  type = string
-}
+# variable "dev_subnet_id" {
+#   type = string
+# }
 
-variable "uat_subnet_id" {
-  type = string
-}
+# variable "stage_subnet_id" {
+#   type = string
+# }
+
+# variable "uat_subnet_id" {
+#   type = string
+# }

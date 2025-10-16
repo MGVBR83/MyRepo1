@@ -16,37 +16,38 @@ module "virtual_network" {
 }
 
 #NSG association with Dev Subnet
-module "dev_nsg" {
+module "pvsingle_nsg" {
   source             = "./modules/NSG"
   rg_name            = var.rg_name
+  location           = var.location
   nsg_name           = var.nsg_name
   security_rule_list = var.security_rule_list
-  subnet_id          = var.dev_subnet_id
+  subnet_id_list     = var.subnet_id_list
   tags               = var.tags
   depends_on         = [module.resource_group, module.virtual_network]
 }
 
-#NSG association with Stage Subnet
-module "stage_nsg" {
-  source             = "./modules/NSG"
-  rg_name            = var.rg_name
-  nsg_name           = var.nsg_name
-  security_rule_list = var.security_rule_list
-  subnet_id          = var.stage_subnet_id
-  tags               = var.tags
-  depends_on         = [module.resource_group, module.virtual_network]
-}
+# #NSG association with Stage Subnet
+# module "stage_nsg" {
+#   source             = "./modules/NSG"
+#   rg_name            = var.rg_name
+#   nsg_name           = var.nsg_name
+#   security_rule_list = var.security_rule_list
+#   subnet_id          = var.stage_subnet_id
+#   tags               = var.tags
+#   depends_on         = [module.resource_group, module.virtual_network]
+# }
 
-#NSG association with UAT Subnet
-module "uat_nsg" {
-  source             = "./modules/NSG"
-  rg_name            = var.rg_name
-  nsg_name           = var.nsg_name
-  security_rule_list = var.security_rule_list
-  subnet_id          = var.uat_subnet_id
-  tags               = var.tags
-  depends_on         = [module.resource_group, module.virtual_network]
-}
+# #NSG association with UAT Subnet
+# module "uat_nsg" {
+#   source             = "./modules/NSG"
+#   rg_name            = var.rg_name
+#   nsg_name           = var.nsg_name
+#   security_rule_list = var.security_rule_list
+#   subnet_id          = var.uat_subnet_id
+#   tags               = var.tags
+#   depends_on         = [module.resource_group, module.virtual_network]
+# }
 
 # module "key_vault" {
 #   source                     = "./modules/Keyvault"

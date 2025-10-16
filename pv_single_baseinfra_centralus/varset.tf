@@ -47,4 +47,8 @@ stage_subnet_id = "/subscriptions/<subid>/resourceGroups/rg-demo/providers/Micro
 
 uat_subnet_id = "/subscriptions/<subid>/resourceGroups/rg-demo/providers/Microsoft.Network/virtualNetworks/demo-vnet/subnets/app-subnet"
 
-
+subnet_id_list = [ 
+  "",
+  "",
+  "" 
+]
