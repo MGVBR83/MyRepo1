@@ -67,6 +67,29 @@ module "app_service" {
 }
 
 
+module "dev_appsvc_subnet_integration" {
+  source                    = "./modules/appsvc_vnet_integration"
+  app_service_id            = var.dev_app_service_id
+  subnet_id                 = var.dev_subnet_id
+}
+
+#variables
+variable "dev_app_service_id" {
+    type = string
+}
+
+variable "dev_subnet_id" {
+    type = string
+}
+
+#tfvars
+dev_app_service_id = ""
+
+dev_subnet_id      = ""
+
+
+
+
 
 
 
