@@ -14,6 +14,14 @@ subnet_list = {
   dev = {
     subnet_name = "snet-dev-pc-pvs-centralus"
     subnet_cidr = ["10.248.184.0/25"]
+    service_endpoints = ["Microsoft.KeyVault", "Microsoft.Web"]
+    delegation = {
+      name = "delegation-devappservice"
+      service_delegation = {
+        name    = "Microsoft.Web/serverFarms"
+        actions = ["Microsoft.Network/virtualNetworks/subnets/action"]
+      }
+    }
   }
   stage = {
     subnet_name = "snet-stg-pc-pvs-centralus"
