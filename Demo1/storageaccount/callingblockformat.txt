@@ -1,0 +1,5 @@
+modules/
+  storage_rg_module/
+    main.tf
+    variables.tf
+    outputs.tf

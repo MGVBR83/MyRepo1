@@ -10,7 +10,7 @@ resource "azurerm_private_link_service" "pvtlink" {
     for_each = var.nat_ip_configs
     content {
       name                       = nat_ip_configuration.value.name
-      private_ip_address         = nat_ip_configuration.value.private_ip_address
+      private_ip_address         = try(nat_ip_configuration.value.private_ip_address, null)
       private_ip_address_version = "IPv4"
       subnet_id                  = nat_ip_configuration.value.subnet_id
       primary                    = try(nat_ip_configuration.value.primary, true)
