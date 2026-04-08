@@ -1,2 +1,17 @@
 chmod +x export-nsg.sh
 ./export-nsg.sh "nsg-web-prod"
+
+
+------
+============
+For specific subscription (if needed):
+az account set --subscription "your-sub-id"
+./export-nsg.sh "nsg-web-prod"
+
+===============
+===========
+Multi-NSG version:
+for nsg in nsg-web-prod nsg-app-prod nsg-db-prod; do
+  ./export-nsg.sh "$nsg"
+done
+================
