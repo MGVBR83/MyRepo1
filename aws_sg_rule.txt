@@ -1,0 +1,32 @@
+SG_NAME="your-sg-name"  # or SG_ID="sg-0123456789abcdef0"
+
+aws ec2 describe-security-groups \
+  --group-names "$SG_NAME" \
+  --query "
+    SecurityGroups[0].{
+      'Security_Group_Name': GroupName,
+      'Security_Group_ID': GroupId,
+      'VPC_ID': VpcId,
+      'Description': Description
+    } |
+    [].{
+      'Rule_ID': SecurityGroupRuleId,
+      'AWS_Account': \`$(aws sts get-caller-identity --query Account --output text)\`,
+      'Region': \`$(aws configure get region)\`,
+      'Server_Name_Asset': Instances[0].Tags[?Key=='Name'].Value|[0],
+      'Instance_ID': Instances[0].InstanceId,
+      'Subnet_ID': Instances[0].SubnetId,
+      'Security_Group_Name': Security_Group_Name,
+      'Security_Group_ID': Security_Group_ID,
+      'Direction': if(IpPermissions[0], 'Inbound', 'Outbound'),
+      'Protocol': IpPermissions[0].IpProtocol || IpPermissionsEgress[0].IpProtocol,
+      'Port_Port_Range': if(IpPermissions[0].FromPort == IpPermissions[0].ToPort, 
+                          IpPermissions[0].FromPort, 
+                          join('-', [IpPermissions[0].FromPort, IpPermissions[0].ToPort])),
+      'Source_Destination': IpPermissions[0].IpRanges[0].CidrIp || 
+                           IpPermissions[0].UserIdGroupPairs[0].GroupId || '0.0.0.0/0',
+      'Source_Type': if(IpPermissions[0].IpRanges[0], 'CIDR', 'SG'),
+      'Description': Description
+    }[]
+  " \
+  --output csv > sg_rules.csv
