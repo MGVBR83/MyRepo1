@@ -1,0 +1,2 @@
+chmod +x export-nsg.sh
+./export-nsg.sh "nsg-web-prod"
