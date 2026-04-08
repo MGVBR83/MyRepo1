@@ -1,0 +1,3 @@
+chmod +x export-sg.sh
+./export-sg.sh "web-sg"          # By name
+./export-sg.sh "sg-0123456789abcdef0"  # By ID
