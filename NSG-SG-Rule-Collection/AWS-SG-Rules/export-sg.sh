@@ -30,8 +30,8 @@ echo "VPC ID   : $VPC_ID"
 echo "--------------------------------------------"
 echo "Fetching ALL rules with pagination..."
 
-# ── CSV Header ────────────────────────────────
-echo "Account_ID,Region,VPC_ID,SG_ID,SG_Name,Direction,Protocol,From_Port,To_Port,Source_Dest_CIDR,Source_Dest_SG,Prefix_List,Rule_Description" > "$OUTPUT"
+# ── CSV Header — added SG_Rule_ID as first column ──
+echo "SG_Rule_ID,Account_ID,Region,VPC_ID,SG_ID,SG_Name,Direction,Protocol,From_Port,To_Port,Source_Dest_CIDR,Source_Dest_SG,Prefix_List,Rule_Description" > "$OUTPUT"
 
 # ── Fetch all pages and write to CSV ─────────
 NEXT_TOKEN=""
@@ -41,7 +41,6 @@ TOTAL_FETCHED=0
 while true; do
   echo "  Fetching page $PAGE..."
 
-  # Fetch page with or without next token
   if [[ -z "$NEXT_TOKEN" ]]; then
     RESPONSE=$(aws ec2 describe-security-group-rules \
       --filters "Name=group-id,Values=$SG_ID" \
@@ -61,8 +60,8 @@ while true; do
   PAGE_COUNT=$(echo "$RESPONSE" | python3 <<PYEOF
 import json, sys
 
-data    = json.loads("""$(echo "$RESPONSE" | python3 -c "import json,sys; print(json.dumps(json.load(sys.stdin)))")""")
-rules   = data.get("SecurityGroupRules", [])
+data  = json.loads("""$(echo "$RESPONSE" | python3 -c "import json,sys; print(json.dumps(json.load(sys.stdin)))")""")
+rules = data.get("SecurityGroupRules", [])
 
 ACCOUNT_ID = "$ACCOUNT_ID"
 REGION     = "$REGION"
@@ -72,6 +71,7 @@ SG_NAME    = "$SG_NAME"
 
 with open("$OUTPUT", "a") as out:
     for rule in rules:
+        rule_id   = rule.get("SecurityGroupRuleId") or ""   # <── new field
         direction = "Outbound" if rule.get("IsEgress") else "Inbound"
         protocol  = rule.get("IpProtocol") or ""
         from_port = str(rule.get("FromPort")) if rule.get("FromPort") is not None else "All"
@@ -81,7 +81,7 @@ with open("$OUTPUT", "a") as out:
         prefix    = rule.get("PrefixListId") or ""
         desc      = rule.get("Description") or ""
 
-        row     = [ACCOUNT_ID, REGION, VPC_ID, SG_ID, SG_NAME,
+        row     = [rule_id, ACCOUNT_ID, REGION, VPC_ID, SG_ID, SG_NAME,   # <── rule_id added
                    direction, protocol, from_port, to_port,
                    cidr, ref_sg, prefix, desc]
         escaped = ['"' + f.replace('"', '""') + '"' for f in row]
@@ -96,25 +96,4 @@ PYEOF
 
   # Check for next page
   NEXT_TOKEN=$(echo "$RESPONSE" | python3 -c \
-    "import json,sys; print(json.load(sys.stdin).get('NextToken',''))" 2>/dev/null || echo "")
-
-  if [[ -z "$NEXT_TOKEN" ]]; then
-    echo "  No more pages."
-    break
-  fi
-
-  PAGE=$(( PAGE + 1 ))
-done
-
-# ── Summary ───────────────────────────────────
-TOTAL=$(( $(wc -l < "$OUTPUT") - 1 ))
-INBOUND=$(grep -c ",Inbound," "$OUTPUT" || true)
-OUTBOUND=$(grep -c ",Outbound," "$OUTPUT" || true)
-
-echo "--------------------------------------------"
-echo "Export complete : $OUTPUT"
-echo "   Total rules    : $TOTAL"
-echo "   Inbound        : $INBOUND"
-echo "   Outbound       : $OUTBOUND"
-echo "--------------------------------------------"
-echo "To download: Actions → Download file → enter: $OUTPUT"
+    "import json,sys; print(json.load(sys.stdin).get('NextToken',''))" 2>/dev/null
