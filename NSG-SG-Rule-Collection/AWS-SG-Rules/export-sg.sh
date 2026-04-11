@@ -2,39 +2,50 @@
 set -euo pipefail
 
 SG_ID="${1:-}"
-REGION="${2:-$(aws configure get region)}"
 
 if [[ -z "$SG_ID" ]]; then
-  echo "Usage: $0 <security-group-id> [region]"
-  echo "Example: $0 sg-xxxxxxxxxxxxxxxxx ap-south-1"
+  echo "Usage: $0 <security-group-id>"
+  echo "Example: $0 sg-xxxxxxxxxxxxxxxxx"
   exit 1
 fi
 
 ACCOUNT_ID=$(aws sts get-caller-identity --query Account -o tsv)
+REGION=$(aws configure get region)
 SG_NAME=$(aws ec2 describe-security-groups \
   --group-ids "$SG_ID" \
   --query "SecurityGroups[0].GroupName" -o tsv)
+VPC_ID=$(aws ec2 describe-security-groups \
+  --group-ids "$SG_ID" \
+  --query "SecurityGroups[0].VpcId" -o tsv)
 OUTPUT="sg_rules_${SG_ID}_$(date +%Y%m%d_%H%M%S).csv"
 
-echo "Fetching rules for: $SG_NAME ($SG_ID) in $REGION ..."
+echo "--------------------------------------------"
+echo "Account  : $ACCOUNT_ID"
+echo "Region   : $REGION"
+echo "SG ID    : $SG_ID"
+echo "SG Name  : $SG_NAME"
+echo "VPC ID   : $VPC_ID"
+echo "--------------------------------------------"
+echo "Fetching rules..."
 
-# ── Header ────────────────────────────────────────────────────────────────
-echo "Account_ID,Region,SG_ID,SG_Name,Direction,Protocol,From_Port,To_Port,Source_Dest_CIDR,Source_Dest_SG,Prefix_List,Description" > "$OUTPUT"
+# ── CSV Header ────────────────────────────────
+echo "Account_ID,Region,VPC_ID,SG_ID,SG_Name,Direction,Protocol,From_Port,To_Port,Source_Dest_CIDR,Source_Dest_SG,Prefix_List,Rule_Description" > "$OUTPUT"
 
-# ── Helper: run query and append to CSV ───────────────────────────────────
+# ── Helper function ───────────────────────────
 append_rules() {
-  local direction="$1"
-  local permission_field="$2"
+  local DIRECTION="$1"
+  local PERMISSION_FIELD="$2"
 
   aws ec2 describe-security-groups \
     --group-ids "$SG_ID" \
     --region "$REGION" \
-    --query "SecurityGroups[0].${permission_field}[].[
+    --query "SecurityGroups[0].${PERMISSION_FIELD}[].[
       '$ACCOUNT_ID',
       '$REGION',
+      '$VPC_ID',
       '$SG_ID',
       '$SG_NAME',
-      '$direction',
+      '$DIRECTION',
       IpProtocol || '',
       to_string(FromPort) || 'All',
       to_string(ToPort) || 'All',
@@ -53,9 +64,19 @@ append_rules() {
       }' >> "$OUTPUT"
 }
 
-# ── Fetch Inbound and Outbound ─────────────────────────────────────────────
+# ── Inbound and Outbound ──────────────────────
 append_rules "Inbound"  "IpPermissions"
 append_rules "Outbound" "IpPermissionsEgress"
 
-RULE_COUNT=$(( $(wc -l < "$OUTPUT") - 1 ))
-echo "✅ Exported $RULE_COUNT rules → $OUTPUT"
+# ── Summary ───────────────────────────────────
+TOTAL=$(( $(wc -l < "$OUTPUT") - 1 ))
+INBOUND=$(grep -c "Inbound" "$OUTPUT" || true)
+OUTBOUND=$(grep -c "Outbound" "$OUTPUT" || true)
+
+echo "--------------------------------------------"
+echo "✅ Export complete: $OUTPUT"
+echo "   Total rules  : $TOTAL"
+echo "   Inbound      : $INBOUND"
+echo "   Outbound     : $OUTBOUND"
+echo "--------------------------------------------"
+echo "To download: Actions → Download file → enter: $OUTPUT"
