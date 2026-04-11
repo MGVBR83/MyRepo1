@@ -1,5 +1,4 @@
 #!/bin/bash
-
 set -euo pipefail
 
 NSG_NAME="${1:-}"
@@ -12,30 +11,41 @@ fi
 
 SUBSCRIPTION_ID=$(az account show --query id -o tsv)
 
-echo "Azure_Rule_ID,Subscription,Resource_Group,Server_Name_Asset,NIC_Subnet_Scope,NSG_Name,NSG_Rule_Name,Priority,Direction,Access,Protocol,Source,Source_Ports,Destination,Destination_Ports,Description,Notes" > azure_nsg_rules.csv
+echo "Azure_Rule_ID,Subscription,Resource_Group,NSG_Name,NSG_Rule_Name,Priority,Direction,Access,Protocol,Source_Address_Prefix,Source_Address_Prefixes,Source_ASGs,Source_Port,Source_Ports,Destination_Address_Prefix,Destination_Address_Prefixes,Destination_ASGs,Destination_Port,Destination_Ports,Description" > azure_nsg_rules.csv
 
 az network nsg rule list \
   --resource-group "$RESOURCE_GROUP" \
   --nsg-name "$NSG_NAME" \
+  --include-default \
   --query "[].[
     name,
     '$SUBSCRIPTION_ID',
-    resourceGroup,
-    '',
-    '',
+    '$RESOURCE_GROUP',
     '$NSG_NAME',
     name,
     to_string(priority),
     direction,
     access,
     protocol,
-    join(';', ([sourceAddressPrefix] || `[]`) + (sourceAddressPrefixes || `[]`)),
-    join(';', ([sourcePortRange] || `[]`) + (sourcePortRanges || `[]`)),
-    join(';', ([destinationAddressPrefix] || `[]`) + (destinationAddressPrefixes || `[]`)),
-    join(';', ([destinationPortRange] || `[]`) + (destinationPortRanges || `[]`)),
-    description || '',
-    ''
+    sourceAddressPrefix || '',
+    join(';', sourceAddressPrefixes || \`[]\`),
+    join(';', (sourceApplicationSecurityGroups || \`[]\`) | [].name),
+    sourcePortRange || '',
+    join(';', sourcePortRanges || \`[]\`),
+    destinationAddressPrefix || '',
+    join(';', destinationAddressPrefixes || \`[]\`),
+    join(';', (destinationApplicationSecurityGroups || \`[]\`) | [].name),
+    destinationPortRange || '',
+    join(';', destinationPortRanges || \`[]\`),
+    description || ''
   ]" \
-  --output tsv | sed 's/\t/","/g; s/^/"/; s/$/"/' >> azure_nsg_rules.csv
+  --output tsv \
+  | awk 'BEGIN{FS="\t"; OFS=","} {
+      for(i=1; i<=NF; i++) {
+        gsub(/"/, "\"\"", $i)
+        printf "%s\"%s\"", (i>1 ? OFS : ""), $i
+      }
+      print ""
+    }' >> azure_nsg_rules.csv
 
 echo "Exported $NSG_NAME rules to azure_nsg_rules.csv"
