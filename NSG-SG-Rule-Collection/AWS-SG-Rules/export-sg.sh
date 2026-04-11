@@ -2,21 +2,23 @@
 set -euo pipefail
 
 SG_ID="${1:-}"
+REGION="${2:-}"
 
-if [[ -z "$SG_ID" ]]; then
-  echo "Usage: $0 <security-group-id>"
-  echo "Example: $0 sg-xxxxxxxxxxxxxxxxx"
+if [[ -z "$SG_ID" || -z "$REGION" ]]; then
+  echo "Usage: $0 <security-group-id> <region>"
+  echo "Example: $0 sg-xxxxxxxxxxxxxxxxx ap-south-1"
   exit 1
 fi
 
-ACCOUNT_ID=$(aws sts get-caller-identity --query Account -o tsv)
-REGION=$(aws configure get region)
+export AWS_DEFAULT_REGION="$REGION"
+
+ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 SG_NAME=$(aws ec2 describe-security-groups \
   --group-ids "$SG_ID" \
-  --query "SecurityGroups[0].GroupName" -o tsv)
+  --query "SecurityGroups[0].GroupName" --output text)
 VPC_ID=$(aws ec2 describe-security-groups \
   --group-ids "$SG_ID" \
-  --query "SecurityGroups[0].VpcId" -o tsv)
+  --query "SecurityGroups[0].VpcId" --output text)
 OUTPUT="sg_rules_${SG_ID}_$(date +%Y%m%d_%H%M%S).csv"
 
 echo "--------------------------------------------"
@@ -26,57 +28,93 @@ echo "SG ID    : $SG_ID"
 echo "SG Name  : $SG_NAME"
 echo "VPC ID   : $VPC_ID"
 echo "--------------------------------------------"
-echo "Fetching rules..."
+echo "Fetching ALL rules with pagination..."
 
 # ── CSV Header ────────────────────────────────
 echo "Account_ID,Region,VPC_ID,SG_ID,SG_Name,Direction,Protocol,From_Port,To_Port,Source_Dest_CIDR,Source_Dest_SG,Prefix_List,Rule_Description" > "$OUTPUT"
 
-# ── Helper function ───────────────────────────
-append_rules() {
-  local DIRECTION="$1"
-  local PERMISSION_FIELD="$2"
+# ── Fetch all pages and write to CSV ─────────
+NEXT_TOKEN=""
+PAGE=1
+TOTAL_FETCHED=0
 
-  aws ec2 describe-security-groups \
-    --group-ids "$SG_ID" \
-    --region "$REGION" \
-    --query "SecurityGroups[0].${PERMISSION_FIELD}[].[
-      '$ACCOUNT_ID',
-      '$REGION',
-      '$VPC_ID',
-      '$SG_ID',
-      '$SG_NAME',
-      '$DIRECTION',
-      IpProtocol || '',
-      to_string(FromPort) || 'All',
-      to_string(ToPort) || 'All',
-      join(';', IpRanges[].CidrIp || \`[]\`),
-      join(';', UserIdGroupPairs[].GroupId || \`[]\`),
-      join(';', PrefixListIds[].PrefixListId || \`[]\`),
-      join(';', IpRanges[].Description || \`[]\`)
-    ]" \
-    --output tsv \
-    | awk 'BEGIN{FS="\t"; OFS=","} {
-        for(i=1; i<=NF; i++) {
-          gsub(/"/, "\"\"", $i)
-          printf "%s\"%s\"", (i>1 ? OFS : ""), $i
-        }
-        print ""
-      }' >> "$OUTPUT"
-}
+while true; do
+  echo "  Fetching page $PAGE..."
 
-# ── Inbound and Outbound ──────────────────────
-append_rules "Inbound"  "IpPermissions"
-append_rules "Outbound" "IpPermissionsEgress"
+  # Fetch page with or without next token
+  if [[ -z "$NEXT_TOKEN" ]]; then
+    RESPONSE=$(aws ec2 describe-security-group-rules \
+      --filters "Name=group-id,Values=$SG_ID" \
+      --max-results 100 \
+      --region "$REGION" \
+      --output json)
+  else
+    RESPONSE=$(aws ec2 describe-security-group-rules \
+      --filters "Name=group-id,Values=$SG_ID" \
+      --max-results 100 \
+      --next-token "$NEXT_TOKEN" \
+      --region "$REGION" \
+      --output json)
+  fi
+
+  # Write rules from this page to CSV using Python
+  PAGE_COUNT=$(echo "$RESPONSE" | python3 <<PYEOF
+import json, sys
+
+data    = json.loads("""$(echo "$RESPONSE" | python3 -c "import json,sys; print(json.dumps(json.load(sys.stdin)))")""")
+rules   = data.get("SecurityGroupRules", [])
+
+ACCOUNT_ID = "$ACCOUNT_ID"
+REGION     = "$REGION"
+VPC_ID     = "$VPC_ID"
+SG_ID      = "$SG_ID"
+SG_NAME    = "$SG_NAME"
+
+with open("$OUTPUT", "a") as out:
+    for rule in rules:
+        direction = "Outbound" if rule.get("IsEgress") else "Inbound"
+        protocol  = rule.get("IpProtocol") or ""
+        from_port = str(rule.get("FromPort")) if rule.get("FromPort") is not None else "All"
+        to_port   = str(rule.get("ToPort"))   if rule.get("ToPort")   is not None else "All"
+        cidr      = rule.get("CidrIpv4") or rule.get("CidrIpv6") or ""
+        ref_sg    = (rule.get("ReferencedGroupInfo") or {}).get("GroupId") or ""
+        prefix    = rule.get("PrefixListId") or ""
+        desc      = rule.get("Description") or ""
+
+        row     = [ACCOUNT_ID, REGION, VPC_ID, SG_ID, SG_NAME,
+                   direction, protocol, from_port, to_port,
+                   cidr, ref_sg, prefix, desc]
+        escaped = ['"' + f.replace('"', '""') + '"' for f in row]
+        out.write(",".join(escaped) + "\n")
+
+print(len(rules))
+PYEOF
+  )
+
+  TOTAL_FETCHED=$(( TOTAL_FETCHED + PAGE_COUNT ))
+  echo "  Page $PAGE → $PAGE_COUNT rules fetched (running total: $TOTAL_FETCHED)"
+
+  # Check for next page
+  NEXT_TOKEN=$(echo "$RESPONSE" | python3 -c \
+    "import json,sys; print(json.load(sys.stdin).get('NextToken',''))" 2>/dev/null || echo "")
+
+  if [[ -z "$NEXT_TOKEN" ]]; then
+    echo "  No more pages."
+    break
+  fi
+
+  PAGE=$(( PAGE + 1 ))
+done
 
 # ── Summary ───────────────────────────────────
 TOTAL=$(( $(wc -l < "$OUTPUT") - 1 ))
-INBOUND=$(grep -c "Inbound" "$OUTPUT" || true)
-OUTBOUND=$(grep -c "Outbound" "$OUTPUT" || true)
+INBOUND=$(grep -c ",Inbound," "$OUTPUT" || true)
+OUTBOUND=$(grep -c ",Outbound," "$OUTPUT" || true)
 
 echo "--------------------------------------------"
-echo "✅ Export complete: $OUTPUT"
-echo "   Total rules  : $TOTAL"
-echo "   Inbound      : $INBOUND"
-echo "   Outbound     : $OUTBOUND"
+echo "Export complete : $OUTPUT"
+echo "   Total rules    : $TOTAL"
+echo "   Inbound        : $INBOUND"
+echo "   Outbound       : $OUTBOUND"
 echo "--------------------------------------------"
 echo "To download: Actions → Download file → enter: $OUTPUT"
