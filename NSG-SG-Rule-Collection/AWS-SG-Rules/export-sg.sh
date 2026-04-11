@@ -96,4 +96,25 @@ PYEOF
 
   # Check for next page
   NEXT_TOKEN=$(echo "$RESPONSE" | python3 -c \
-    "import json,sys; print(json.load(sys.stdin).get('NextToken',''))" 2>/dev/null
+    "import json,sys; print(json.load(sys.stdin).get('NextToken',''))" 2>/dev/null || echo "")
+
+  if [[ -z "$NEXT_TOKEN" ]]; then
+    echo "  No more pages."
+    break
+  fi
+
+  PAGE=$(( PAGE + 1 ))
+done
+
+# ── Summary ───────────────────────────────────
+TOTAL=$(( $(wc -l < "$OUTPUT") - 1 ))
+INBOUND=$(grep -c ",Inbound," "$OUTPUT" || true)
+OUTBOUND=$(grep -c ",Outbound," "$OUTPUT" || true)
+
+echo "--------------------------------------------"
+echo "Export complete : $OUTPUT"
+echo "   Total rules  : $TOTAL"
+echo "   Inbound      : $INBOUND"
+echo "   Outbound     : $OUTBOUND"
+echo "--------------------------------------------"
+echo "To download: Actions → Download file → enter: $OUTPUT"
