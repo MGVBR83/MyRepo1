@@ -29,17 +29,32 @@ az network nsg rule list \
     protocol,
     sourceAddressPrefix || '',
     join(';', sourceAddressPrefixes || \`[]\`),
-    join(';', (sourceApplicationSecurityGroups || \`[]\`) | [].name),
+    join(';', (sourceApplicationSecurityGroups || \`[]\`) | [].id),
     sourcePortRange || '',
     join(';', sourcePortRanges || \`[]\`),
     destinationAddressPrefix || '',
     join(';', destinationAddressPrefixes || \`[]\`),
-    join(';', (destinationApplicationSecurityGroups || \`[]\`) | [].name),
+    join(';', (destinationApplicationSecurityGroups || \`[]\`) | [].id),
     destinationPortRange || '',
     join(';', destinationPortRanges || \`[]\`),
     description || ''
   ]" \
   --output tsv \
+  | awk 'BEGIN{FS="\t"; OFS="\t"} {
+      for(i=1; i<=NF; i++) {
+        # columns 12 and 17 are ASG fields — extract name after last "/"
+        if (i==12 || i==17) {
+          n = split($i, parts, ";")
+          result = ""
+          for(j=1; j<=n; j++) {
+            split(parts[j], seg, "/")
+            result = result (j>1 ? ";" : "") seg[length(seg)]
+          }
+          $i = result
+        }
+      }
+      print
+    }' \
   | awk 'BEGIN{FS="\t"; OFS=","} {
       for(i=1; i<=NF; i++) {
         gsub(/"/, "\"\"", $i)
