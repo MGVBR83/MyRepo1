@@ -1,38 +1,61 @@
 #!/bin/bash
-SG_INPUT="$1"
-REGION=$(aws configure get region)
+set -euo pipefail
 
-if [[ $SG_INPUT == sg-* ]]; then
-  GROUP_FILTER="--group-ids $SG_INPUT"
-else
-  GROUP_FILTER="--group-names $SG_INPUT"
+SG_ID="${1:-}"
+REGION="${2:-$(aws configure get region)}"
+
+if [[ -z "$SG_ID" ]]; then
+  echo "Usage: $0 <security-group-id> [region]"
+  echo "Example: $0 sg-xxxxxxxxxxxxxxxxx ap-south-1"
+  exit 1
 fi
 
-echo "Rule_ID,AWS_Account,Region,Server_Name_Asset,Instance_ID,VPC_ID,Subnet_ID,Security_Group_Name,Security_Group_ID,Direction,Protocol,Port_Port_Range,Source_Destination,Source_Type,Description" > sg_rules.csv
+ACCOUNT_ID=$(aws sts get-caller-identity --query Account -o tsv)
+SG_NAME=$(aws ec2 describe-security-groups \
+  --group-ids "$SG_ID" \
+  --query "SecurityGroups[0].GroupName" -o tsv)
+OUTPUT="sg_rules_${SG_ID}_$(date +%Y%m%d_%H%M%S).csv"
 
-aws ec2 describe-security-groups $GROUP_FILTER --region $REGION --output json | \
-jq -r "
-  .SecurityGroups[0] as \$sg |
-  (if \$sg.IpPermissions then \$sg.IpPermissions else [] end) as \$inbound |
-  (if \$sg.IpPermissionsEgress then \$sg.IpPermissionsEgress else [] end) as \$outbound |
-  [\$inbound[], \$outbound[]] | .[] |
-  [
-    (.SecurityGroupRuleId // empty),
-    \"$(aws sts get-caller-identity --query Account --output text)\",
-    \"$REGION\",
-    (if \$sg.Instances[0].Tags then \$sg.Instances[0].Tags[] | select(.Key==\"Name\") | .Value else empty end),
-    (\$sg.Instances[0].InstanceId // empty),
-    (\$sg.VpcId // empty),
-    (if \$sg.Instances[0] then \$sg.Instances[0].SubnetId else empty end),
-    \$sg.GroupName,
-    \$sg.GroupId,
-    (if .IsEgress then \"Outbound\" else \"Inbound\" end),
-    (.IpProtocol // \"all\"),
-    (if .FromPort == .ToPort then .FromPort else (.FromPort + \"-\" + .ToPort) end),
-    ((.CidrIpv4 // .CidrIpv6 // .ReferencedGroupInfo.GroupId) // \"0.0.0.0/0\"),
-    (if .CidrIpv4 then \"CIDR\" elif .ReferencedGroupInfo then \"SG\" else \"Other\" end),
-    (.Description // \$sg.Description)
-  ] | @csv
-" >> sg_rules.csv
+echo "Fetching rules for: $SG_NAME ($SG_ID) in $REGION ..."
 
-echo "Exported to sg_rules.csv - ready for your workbook!"
+# ── Header ────────────────────────────────────────────────────────────────
+echo "Account_ID,Region,SG_ID,SG_Name,Direction,Protocol,From_Port,To_Port,Source_Dest_CIDR,Source_Dest_SG,Prefix_List,Description" > "$OUTPUT"
+
+# ── Helper: run query and append to CSV ───────────────────────────────────
+append_rules() {
+  local direction="$1"
+  local permission_field="$2"
+
+  aws ec2 describe-security-groups \
+    --group-ids "$SG_ID" \
+    --region "$REGION" \
+    --query "SecurityGroups[0].${permission_field}[].[
+      '$ACCOUNT_ID',
+      '$REGION',
+      '$SG_ID',
+      '$SG_NAME',
+      '$direction',
+      IpProtocol || '',
+      to_string(FromPort) || 'All',
+      to_string(ToPort) || 'All',
+      join(';', IpRanges[].CidrIp || \`[]\`),
+      join(';', UserIdGroupPairs[].GroupId || \`[]\`),
+      join(';', PrefixListIds[].PrefixListId || \`[]\`),
+      join(';', IpRanges[].Description || \`[]\`)
+    ]" \
+    --output tsv \
+    | awk 'BEGIN{FS="\t"; OFS=","} {
+        for(i=1; i<=NF; i++) {
+          gsub(/"/, "\"\"", $i)
+          printf "%s\"%s\"", (i>1 ? OFS : ""), $i
+        }
+        print ""
+      }' >> "$OUTPUT"
+}
+
+# ── Fetch Inbound and Outbound ─────────────────────────────────────────────
+append_rules "Inbound"  "IpPermissions"
+append_rules "Outbound" "IpPermissionsEgress"
+
+RULE_COUNT=$(( $(wc -l < "$OUTPUT") - 1 ))
+echo "✅ Exported $RULE_COUNT rules → $OUTPUT"
