@@ -1,0 +1,10 @@
+.\deploy-vm-nic.ps1 `
+  -ResourceGroupName "prod-rg" `
+  -Subnet1Id         "/subscriptions/.../subnets/subnet1" `
+  -Subnet2Id         "/subscriptions/.../subnets/subnet2" `
+  -Subnet3Id         "/subscriptions/.../subnets/subnet3" `
+  -Subnet1NsgName    "nsg-subnet1" `
+  -Subnet2NsgName    "nsg-subnet2" `
+  -Subnet3NsgName    "nsg-subnet3" `
+  -AsgName           "my-asg" `
+  -NewNicName        "my-nic-sub3"
