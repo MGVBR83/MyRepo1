@@ -261,25 +261,44 @@ $totalSteps  = 2 + $totalRules + 3     # ASG, NIC, rules, Stop, Attach, Start
 $stepNum     = 0
 
 # ==============================================================================
-# SECTION 2 — Create ASG
+# SECTION 2 — Create ASG (or reuse if already exists)
 # ==============================================================================
 $stepNum++
-Write-Step $stepNum $totalSteps "Creating Application Security Group '$AsgName'..."
+Write-Step $stepNum $totalSteps "Checking / Creating Application Security Group '$AsgName'..."
 
 try {
-    $asgJson = az network asg create `
+    Write-Info "Checking if ASG '$AsgName' already exists in resource group '$ResourceGroupName'..."
+
+    $existingAsgJson = az network asg show `
         --resource-group $ResourceGroupName `
         --name           $AsgName `
-        --location       $Location `
         --output         json 2>&1
 
-    if ($LASTEXITCODE -ne 0) { throw $asgJson }
-    $asg   = $asgJson | ConvertFrom-Json
-    $asgId = $asg.id
-    if (-not $asgId) { throw "ASG ID was null or empty." }
-    Write-Ok "ASG created.  ID: $asgId"
+    if ($LASTEXITCODE -eq 0) {
+        # ASG already exists — reuse it
+        $asg   = $existingAsgJson | ConvertFrom-Json
+        $asgId = $asg.id
+        if (-not $asgId) { throw "Existing ASG found but ID was null or empty." }
+        Write-Ok "ASG '$AsgName' already exists — reusing.  ID: $asgId"
+    }
+    else {
+        # ASG does not exist — create it
+        Write-Info "ASG not found. Creating '$AsgName' in location '$Location'..."
+
+        $asgJson = az network asg create `
+            --resource-group $ResourceGroupName `
+            --name           $AsgName `
+            --location       $Location `
+            --output         json 2>&1
+
+        if ($LASTEXITCODE -ne 0) { throw $asgJson }
+        $asg   = $asgJson | ConvertFrom-Json
+        $asgId = $asg.id
+        if (-not $asgId) { throw "ASG ID was null or empty after creation." }
+        Write-Ok "ASG created.  ID: $asgId"
+    }
 }
-catch { Write-Error "[ERROR] Failed to create ASG '$AsgName'. Details: $_"; exit 1 }
+catch { Write-Error "[ERROR] Failed to check/create ASG '$AsgName'. Details: $_"; exit 1 }
 
 # ==============================================================================
 # SECTION 3 — Create NIC on Subnet 3 and attach to ASG
