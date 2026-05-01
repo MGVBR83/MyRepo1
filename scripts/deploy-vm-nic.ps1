@@ -124,10 +124,10 @@ foreach ($subnet in $allSubnets) {
         $ruleName = Read-Input -Prompt "    Rule Name" -Default "$($subnet.NsgName)-Rule$i"
 
         do {
-            $priorityInput = Read-Input -Prompt "    Priority (100–4096)" -Default (100 + ($i - 1) * 10).ToString()
+            $priorityInput = Read-Input -Prompt "    Priority (2000–4096)" -Default (100 + ($i - 1) * 10).ToString()
             $priority      = 0
             $validP        = [int]::TryParse($priorityInput, [ref]$priority) -and $priority -ge 100 -and $priority -le 4096
-            if (-not $validP) { Write-Warning "    Must be 100–4096." }
+            if (-not $validP) { Write-Warning "    Must be 2000–4096." }
         } while (-not $validP)
 
         do {
@@ -149,10 +149,9 @@ foreach ($subnet in $allSubnets) {
         if ($protocol -ne "*") { $protocol = (Get-Culture).TextInfo.ToTitleCase($protocol) }
 
         $srcPortInput = Read-Input -Prompt "    Source Port Range(s) comma-separated (e.g. * or 80,443)" -Default "*"
-        $srcPorts     = $srcPortInput -split "," | ForEach-Object { $_.Trim() }
-
+        $srcPorts = if ($srcPortInput.Trim() -eq "*") { @("*") } else { $srcPortInput -split "," | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" } }
         $dstPortInput = Read-Input -Prompt "    Destination Port Range(s) comma-separated (e.g. 3343,135,49152-65535)" -Default "*"
-        $dstPorts     = $dstPortInput -split "," | ForEach-Object { $_.Trim() }
+        $dstPorts = if ($dstPortInput.Trim() -eq "*") { @("*") } else { $dstPortInput -split "," | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" } }
 
         # Source
         $useSrcAsg          = (Read-Input -Prompt "    Use ASG as Source? (yes/no)" -Default "yes").ToLower()
@@ -362,8 +361,11 @@ foreach ($subnet in $allSubnets) {
                 "--direction",      $rule.Direction,
                 "--protocol",       $rule.Protocol,
                 "--source-port-ranges"
-            ) + $rule.SrcPorts + @("--destination-port-ranges") + $rule.DstPorts
-
+           "--source-port-ranges"
+            ) + @(if ($rule.SrcPorts.Count -eq 1 -and $rule.SrcPorts[0] -eq "*") { '"*"' } else { $rule.SrcPorts }) `
+              + @("--destination-port-ranges") `
+              + @(if ($rule.DstPorts.Count -eq 1 -and $rule.DstPorts[0] -eq "*") { '"*"' } else { $rule.DstPorts })
+              
             if ($resolvedSrcAsgIds.Count -gt 0) {
                 $azArgs += @("--source-asgs") + $resolvedSrcAsgIds
             } elseif ($rule.SrcAddressPrefixes.Count -gt 0) {
