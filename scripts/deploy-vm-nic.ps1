@@ -362,9 +362,9 @@ foreach ($subnet in $allSubnets) {
                 "--protocol",       $rule.Protocol,
                 "--source-port-ranges"
            "--source-port-ranges"
-            ) + @(if ($rule.SrcPorts.Count -eq 1 -and $rule.SrcPorts[0] -eq "*") { '"*"' } else { $rule.SrcPorts }) `
+            ) + @(if ($rule.SrcPorts.Count -eq 1 -and $rule.SrcPorts[0] -eq "*") { '*' } else { $rule.SrcPorts }) `
               + @("--destination-port-ranges") `
-              + @(if ($rule.DstPorts.Count -eq 1 -and $rule.DstPorts[0] -eq "*") { '"*"' } else { $rule.DstPorts })
+              + @(if ($rule.DstPorts.Count -eq 1 -and $rule.DstPorts[0] -eq "*") { '*' } else { $rule.DstPorts })
               
             if ($resolvedSrcAsgIds.Count -gt 0) {
                 $azArgs += @("--source-asgs") + $resolvedSrcAsgIds
