@@ -1,4 +1,4 @@
-﻿# ==============================================================================
+# ==============================================================================
 # deploy-vm-nic.ps1
 #
 # Workflow (one VM at a time — user picks A-side or B-side):
@@ -78,6 +78,50 @@ function Write-Step {
 function Write-Ok   { param([string]$Msg) Write-Host "[OK] $Msg" -ForegroundColor Green }
 function Write-Info { param([string]$Msg) Write-Host "[INFO] $Msg" -ForegroundColor Cyan }
 
+function Normalize-PortRanges {
+    param([string]$InputText, [string]$FieldName)
+    if ([string]::IsNullOrWhiteSpace($InputText)) {
+        return @("*")
+    }
+
+    $items = $InputText -split ',' |
+        ForEach-Object { $_.Trim() } |
+        Where-Object { $_ -ne '' }
+
+    if ($items.Count -eq 0) {
+        return @("*")
+    }
+
+    if ($items -contains '*') {
+        if ($items.Count -gt 1) {
+            throw "$FieldName cannot contain '*' together with other port values."
+        }
+        return @("*")
+    }
+
+    foreach ($item in $items) {
+        if ($item -notmatch '^\d{1,5}$|^\d{1,5}-\d{1,5}$') {
+            throw "Invalid $FieldName value '$item'. Use '*', a single port like 443, or a range like 1000-2000."
+        }
+
+        if ($item -match '^(\d{1,5})-(\d{1,5})$') {
+            $start = [int]$matches[1]
+            $end   = [int]$matches[2]
+            if ($start -lt 0 -or $start -gt 65535 -or $end -lt 0 -or $end -gt 65535 -or $start -gt $end) {
+                throw "Invalid $FieldName range '$item'. Port numbers must be 0-65535 and start must be <= end."
+            }
+        }
+        elseif ($item -match '^\d{1,5}$') {
+            $port = [int]$item
+            if ($port -lt 0 -or $port -gt 65535) {
+                throw "Invalid $FieldName port '$item'. Port numbers must be 0-65535."
+            }
+        }
+    }
+
+    return @($items)
+}
+
 # ==============================================================================
 # SECTION 0 — Collect ALL inputs interactively BEFORE any Azure calls
 # ==============================================================================
@@ -105,98 +149,123 @@ $allSubnets = @(
 $rulesByNsg = @{}
 
 foreach ($subnet in $allSubnets) {
-
-    Write-Section "NSG Rules for $($subnet.Label) — NSG: $($subnet.NsgName)"
-
-    do {
-        $ruleCountInput = Read-Host "  How many NSG rules to create for $($subnet.Label)?"
-        $ruleCount      = 0
-        $validCount     = [int]::TryParse($ruleCountInput, [ref]$ruleCount) -and $ruleCount -ge 0
-        if (-not $validCount) { Write-Warning "  Please enter 0 or a positive integer." }
-    } while (-not $validCount)
-
-    $rules = @()
-
-    for ($i = 1; $i -le $ruleCount; $i++) {
-
-        Write-Host "`n  -- $($subnet.Label) | Rule $i of $ruleCount --" -ForegroundColor Yellow
-
-        $ruleName = Read-Input -Prompt "    Rule Name" -Default "$($subnet.NsgName)-Rule$i"
-
-        do {
-            $priorityInput = Read-Input -Prompt "    Priority (2000–4096)" -Default (100 + ($i - 1) * 10).ToString()
-            $priority      = 0
-            $validP        = [int]::TryParse($priorityInput, [ref]$priority) -and $priority -ge 100 -and $priority -le 4096
-            if (-not $validP) { Write-Warning "    Must be 2000–4096." }
-        } while (-not $validP)
-
-        do {
-            $access = (Read-Input -Prompt "    Access (Allow/Deny)" -Default "Allow").ToLower()
-            if ($access -notin @("allow","deny")) { Write-Warning "    Enter Allow or Deny." }
-        } while ($access -notin @("allow","deny"))
-        $access = (Get-Culture).TextInfo.ToTitleCase($access)
-
-        do {
-            $direction = (Read-Input -Prompt "    Direction (Inbound/Outbound)" -Default "Inbound").ToLower()
-            if ($direction -notin @("inbound","outbound")) { Write-Warning "    Enter Inbound or Outbound." }
-        } while ($direction -notin @("inbound","outbound"))
-        $direction = (Get-Culture).TextInfo.ToTitleCase($direction)
-
-        do {
-            $protocol = (Read-Input -Prompt "    Protocol (Tcp/Udp/Icmp/*)" -Default "Tcp").ToLower()
-            if ($protocol -notin @("tcp","udp","icmp","*")) { Write-Warning "    Enter Tcp, Udp, Icmp, or *." }
-        } while ($protocol -notin @("tcp","udp","icmp","*"))
-        if ($protocol -ne "*") { $protocol = (Get-Culture).TextInfo.ToTitleCase($protocol) }
-
-        $srcPortInput = Read-Input -Prompt "    Source Port Range(s) comma-separated (e.g. * or 80,443)" -Default "*"
-        $srcPorts = if ($srcPortInput.Trim() -eq "*") { @("*") } else { $srcPortInput -split "," | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" } }
-        $dstPortInput = Read-Input -Prompt "    Destination Port Range(s) comma-separated (e.g. 3343,135,49152-65535)" -Default "*"
-        $dstPorts = if ($dstPortInput.Trim() -eq "*") { @("*") } else { $dstPortInput -split "," | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" } }
-
-        # Source
-        $useSrcAsg          = (Read-Input -Prompt "    Use ASG as Source? (yes/no)" -Default "yes").ToLower()
-        $srcAsgIds          = @()
-        $srcAddressPrefixes = @()
-        if ($useSrcAsg -eq "yes") {
-            $customSrc = Read-Input -Prompt "    Source ASG ID (blank = use '$AsgName' from this run)" -Default ""
-            $srcAsgIds = if ([string]::IsNullOrWhiteSpace($customSrc)) { @("__USE_SCRIPT_ASG__") }
-                         else { @($customSrc.Trim()) }
-        }
-        else {
-            $srcPfxIn           = Read-Input -Prompt "    Source Address Prefix(es) comma-separated" -Default "*"
-            $srcAddressPrefixes = $srcPfxIn -split "," | ForEach-Object { $_.Trim() }
-        }
-
-        # Destination
-        $useDstAsg          = (Read-Input -Prompt "    Use ASG as Destination? (yes/no)" -Default "yes").ToLower()
-        $dstAsgIds          = @()
-        $dstAddressPrefixes = @()
-        if ($useDstAsg -eq "yes") {
-            $customDst = Read-Input -Prompt "    Destination ASG ID (blank = use '$AsgName' from this run)" -Default ""
-            $dstAsgIds = if ([string]::IsNullOrWhiteSpace($customDst)) { @("__USE_SCRIPT_ASG__") }
-                         else { @($customDst.Trim()) }
-        }
-        else {
-            $dstPfxIn           = Read-Input -Prompt "    Destination Address Prefix(es) comma-separated" -Default "*"
-            $dstAddressPrefixes = $dstPfxIn -split "," | ForEach-Object { $_.Trim() }
-        }
-
-        $rules += @{
-            RuleName            = $ruleName
-            Priority            = $priority
-            Access              = $access
-            Direction           = $direction
-            Protocol            = $protocol
-            SrcPorts            = $srcPorts
-            DstPorts            = $dstPorts
-            SrcAsgIds           = $srcAsgIds
-            SrcAddressPrefixes  = $srcAddressPrefixes
-            DstAsgIds           = $dstAsgIds
-            DstAddressPrefixes  = $dstAddressPrefixes
-        }
-        Write-Host "    [SAVED] Rule '$ruleName' stored for $($subnet.NsgName)." -ForegroundColor Green
+    Write-Section "NSG Rules for $($subnet.Label) NSG: $($subnet.NsgName)"
+    
+    $ruleCountInput = Read-Host "How many NSG rules to create for $($subnet.Label)?"
+    $ruleCount = 0
+    $validCount = [int]::TryParse($ruleCountInput, [ref]$ruleCount) -and $ruleCount -ge 0
+    while (-not $validCount) {
+        Write-Warning "Please enter 0 or a positive integer."
+        $ruleCountInput = Read-Host "How many NSG rules to create for $($subnet.Label)?"
+        $validCount = [int]::TryParse($ruleCountInput, [ref]$ruleCount) -and $ruleCount -ge 0
     }
 
+    $rules = @()
+    for ($i = 1; $i -le $ruleCount; $i++) {
+        Write-Host "`n-- $($subnet.Label) Rule $i of $ruleCount --" -ForegroundColor Yellow
+        
+        $ruleName = Read-Input -Prompt "Rule Name" -Default "$($subnet.NsgName)-Rule$i"
+        $priorityInput = Read-Input -Prompt "Priority (100-4096)" -Default "100+$($i-1)"
+        $priority = 0
+        $validP = [int]::TryParse($priorityInput, [ref]$priority) -and $priority -ge 100 -and $priority -le 4096
+        while (-not $validP) {
+            Write-Warning "Must be 100-4096."
+            $priorityInput = Read-Input -Prompt "Priority (100-4096)"
+            $validP = [int]::TryParse($priorityInput, [ref]$priority) -and $priority -ge 100 -and $priority -le 4096
+        }
+
+        $access = Read-Input -Prompt "Access (Allow/Deny)" -Default "Allow"
+        $access = switch -regex ($access.ToLower()) { '^(allow|al)$' { 'Allow' } '^(deny|de)$' { 'Deny' } default { $null } }
+        while (-not $access) {
+            Write-Warning "Enter Allow or Deny."
+            $access = Read-Input -Prompt "Access (Allow/Deny)"
+            $access = switch -regex ($access.ToLower()) { '^(allow|al)$' { 'Allow' } '^(deny|de)$' { 'Deny' } default { $null } }
+        }
+
+        $direction = Read-Input -Prompt "Direction (Inbound/Outbound)" -Default "Inbound"
+        $direction = switch -regex ($direction.ToLower()) { '^(inbound|in)$' { 'Inbound' } '^(outbound|out)$' { 'Outbound' } default { $null } }
+        while (-not $direction) {
+            Write-Warning "Enter Inbound or Outbound."
+            $direction = Read-Input -Prompt "Direction (Inbound/Outbound)"
+            $direction = switch -regex ($direction.ToLower()) { '^(inbound|in)$' { 'Inbound' } '^(outbound|out)$' { 'Outbound' } default { $null } }
+        }
+
+        $protocol = Read-Input -Prompt "Protocol (Tcp/Udp/Icmp/*)" -Default "Tcp"
+        $protocol = switch -regex ($protocol.ToLower()) { 
+            '^(tcp|t)$' { 'Tcp' } 
+            '^(udp|u)$' { 'Udp' } 
+            '^(icmp|i)$' { 'Icmp' }
+            '^\*$' { '*' }
+            default { $null }
+        }
+        while (-not $protocol) {
+            Write-Warning "Enter Tcp, Udp, Icmp, or *."
+            $protocol = Read-Input -Prompt "Protocol (Tcp/Udp/Icmp/*)"
+            $protocol = switch -regex ($protocol.ToLower()) { 
+                '^(tcp|t)$' { 'Tcp' } 
+                '^(udp|u)$' { 'Udp' } 
+                '^(icmp|i)$' { 'Icmp' }
+                '^\*$' { '*' }
+                default { $null }
+            }
+        }
+
+        # NEW: Proper port range handling with validation
+        try {
+            $srcPortInput = Read-Input -Prompt "Source Port Ranges (comma-separated, e.g. * or 80,443 or 1000-2000)" -Default "*"
+            $srcPorts = Normalize-PortRanges -InputText $srcPortInput -FieldName "Source Port Ranges"
+
+            $dstPortInput = Read-Input -Prompt "Destination Port Ranges (comma-separated, e.g. * or 80,443 or 49152-65535)" -Default "*"
+            $dstPorts = Normalize-PortRanges -InputText $dstPortInput -FieldName "Destination Port Ranges"
+        }
+        catch {
+            Write-Warning $_.Exception.Message
+            Write-Host "Using default '*' for ports..." -ForegroundColor Yellow
+            $srcPorts = @("*")
+            $dstPorts = @("*")
+        }
+
+        # Source address handling (unchanged)
+        $useSrcAsg = Read-Input -Prompt "Use ASG as Source? (yes/no)" -Default "yes"
+        if ($useSrcAsg.ToLower() -eq "yes") {
+            $customSrc = Read-Input -Prompt "Source ASG ID (blank = use $AsgName from this run)" -Default ""
+            $srcAsgIds = if ([string]::IsNullOrWhiteSpace($customSrc)) { @("USESCRIPTASG") } else { @($customSrc.Trim()) }
+            $srcAddressPrefixes = @()
+        } else {
+            $srcPfxIn = Read-Input -Prompt "Source Address Prefixes (comma-separated)" -Default ""
+            $srcAddressPrefixes = if ([string]::IsNullOrWhiteSpace($srcPfxIn)) { @() } else { $srcPfxIn -split ',' | ForEach-Object { $_.Trim() } }
+            $srcAsgIds = @()
+        }
+
+        # Destination address handling (unchanged)  
+        $useDstAsg = Read-Input -Prompt "Use ASG as Destination? (yes/no)" -Default "yes"
+        if ($useDstAsg.ToLower() -eq "yes") {
+            $customDst = Read-Input -Prompt "Destination ASG ID (blank = use $AsgName from this run)" -Default ""
+            $dstAsgIds = if ([string]::IsNullOrWhiteSpace($customDst)) { @("USESCRIPTASG") } else { @($customDst.Trim()) }
+            $dstAddressPrefixes = @()
+        } else {
+            $dstPfxIn = Read-Input -Prompt "Destination Address Prefixes (comma-separated)" -Default ""
+            $dstAddressPrefixes = if ([string]::IsNullOrWhiteSpace($dstPfxIn)) { @() } else { $dstPfxIn -split ',' | ForEach-Object { $_.Trim() } }
+            $dstAsgIds = @()
+        }
+
+        $rules += [PSCustomObject]@{
+            RuleName = $ruleName
+            Priority = $priority
+            Access = $access
+            Direction = $direction
+            Protocol = $protocol
+            SrcPorts = $srcPorts
+            DstPorts = $dstPorts
+            SrcAsgIds = $srcAsgIds
+            SrcAddressPrefixes = $srcAddressPrefixes
+            DstAsgIds = $dstAsgIds
+            DstAddressPrefixes = $dstAddressPrefixes
+        }
+        
+        Write-Host "SAVED Rule '$ruleName' stored for $($subnet.NsgName)." -ForegroundColor Green
+    }
+    
     $rulesByNsg[$subnet.NsgName] = $rules
 }
 
@@ -260,44 +329,25 @@ $totalSteps  = 2 + $totalRules + 3     # ASG, NIC, rules, Stop, Attach, Start
 $stepNum     = 0
 
 # ==============================================================================
-# SECTION 2 — Create ASG (or reuse if already exists)
+# SECTION 2 — Create ASG
 # ==============================================================================
 $stepNum++
-Write-Step $stepNum $totalSteps "Checking / Creating Application Security Group '$AsgName'..."
+Write-Step $stepNum $totalSteps "Creating Application Security Group '$AsgName'..."
 
 try {
-    Write-Info "Checking if ASG '$AsgName' already exists in resource group '$ResourceGroupName'..."
-
-    $existingAsgJson = az network asg show `
+    $asgJson = az network asg create `
         --resource-group $ResourceGroupName `
         --name           $AsgName `
+        --location       $Location `
         --output         json 2>&1
 
-    if ($LASTEXITCODE -eq 0) {
-        # ASG already exists — reuse it
-        $asg   = $existingAsgJson | ConvertFrom-Json
-        $asgId = $asg.id
-        if (-not $asgId) { throw "Existing ASG found but ID was null or empty." }
-        Write-Ok "ASG '$AsgName' already exists — reusing.  ID: $asgId"
-    }
-    else {
-        # ASG does not exist — create it
-        Write-Info "ASG not found. Creating '$AsgName' in location '$Location'..."
-
-        $asgJson = az network asg create `
-            --resource-group $ResourceGroupName `
-            --name           $AsgName `
-            --location       $Location `
-            --output         json 2>&1
-
-        if ($LASTEXITCODE -ne 0) { throw $asgJson }
-        $asg   = $asgJson | ConvertFrom-Json
-        $asgId = $asg.id
-        if (-not $asgId) { throw "ASG ID was null or empty after creation." }
-        Write-Ok "ASG created.  ID: $asgId"
-    }
+    if ($LASTEXITCODE -ne 0) { throw $asgJson }
+    $asg   = $asgJson | ConvertFrom-Json
+    $asgId = $asg.id
+    if (-not $asgId) { throw "ASG ID was null or empty." }
+    Write-Ok "ASG created.  ID: $asgId"
 }
-catch { Write-Error "[ERROR] Failed to check/create ASG '$AsgName'. Details: $_"; exit 1 }
+catch { Write-Error "[ERROR] Failed to create ASG '$AsgName'. Details: $_"; exit 1 }
 
 # ==============================================================================
 # SECTION 3 — Create NIC on Subnet 3 and attach to ASG
@@ -325,69 +375,63 @@ catch { Write-Error "[ERROR] Failed to create NIC '$NewNicName'. Details: $_"; e
 # SECTION 4 — Create NSG Rules per subnet (loop over all 3 NSGs)
 # ==============================================================================
 foreach ($subnet in $allSubnets) {
-
     $nsgName = $subnet.NsgName
-    $rules   = $rulesByNsg[$nsgName]
-
+    $rules = $rulesByNsg[$nsgName]
+    
     if ($rules.Count -eq 0) {
-        Write-Info "No rules configured for $($subnet.Label) ($nsgName) — skipping."
+        Write-Info "No rules configured for $($subnet.Label) $nsgName, skipping."
         continue
     }
 
-    Write-Host "`n  ── $($subnet.Label) NSG Rules ($nsgName) ──" -ForegroundColor Cyan
-
+    Write-Host "`n$($subnet.Label) NSG Rules ($nsgName)" -ForegroundColor Cyan
+    
     foreach ($rule in $rules) {
-
         $stepNum++
-        Write-Step $stepNum $totalSteps "Creating NSG Rule '$($rule.RuleName)' on '$nsgName'..."
-
+        Write-Step $stepNum $totalSteps "Creating NSG Rule '$($rule.RuleName)' on $nsgName..."
+        
         try {
-            # Resolve ASG placeholder
-            $resolvedSrcAsgIds = $rule.SrcAsgIds | ForEach-Object {
-                if ($_ -eq "__USE_SCRIPT_ASG__") { $asgId } else { $_ }
-            }
-            $resolvedDstAsgIds = $rule.DstAsgIds | ForEach-Object {
-                if ($_ -eq "__USE_SCRIPT_ASG__") { $asgId } else { $_ }
-            }
+            # Resolve ASG placeholders
+            $resolvedSrcAsgIds = $rule.SrcAsgIds | ForEach-Object { if ($_ -eq "USESCRIPTASG") { $asgId } else { $_ } }
+            $resolvedDstAsgIds = $rule.DstAsgIds | ForEach-Object { if ($_ -eq "USESCRIPTASG") { $asgId } else { $_ } }
 
-            # Build az args dynamically
-            $srcPortArgs = if ($rule.SrcPorts.Count -eq 1 -and $rule.SrcPorts[0] -eq "*") { @("*") } else { $rule.SrcPorts }
-            $dstPortArgs = if ($rule.DstPorts.Count -eq 1 -and $rule.DstPorts[0] -eq "*") { @("*") } else { $rule.DstPorts }
+            # Build az CLI arguments - ports are ALWAYS passed as arrays (handles * correctly)
             $azArgs = @(
-                "network","nsg","rule","create",
-                "--resource-group", $ResourceGroupName,
-                "--nsg-name",       $nsgName,
-                "--name",           $rule.RuleName,
-                "--priority",       $rule.Priority,
-                "--access",         $rule.Access,
-                "--direction",      $rule.Direction,
-                "--protocol",       $rule.Protocol,
-                "--source-port-ranges"
-            ) + $srcPortArgs + @(
-                "--destination-port-ranges"
-            ) + $dstPortArgs
-              
+                'network', 'nsg', 'rule', 'create',
+                '--resource-group', $ResourceGroupName,
+                '--nsg-name', $nsgName,
+                '--name', $rule.RuleName,
+                '--priority', $rule.Priority,
+                '--access', $rule.Access,
+                '--direction', $rule.Direction,
+                '--protocol', $rule.Protocol,
+                '--source-port-ranges'
+            ) + $rule.SrcPorts + @(
+                '--destination-port-ranges'
+            ) + $rule.DstPorts
+
+            # Add source/destination addressing
             if ($resolvedSrcAsgIds.Count -gt 0) {
-                $azArgs += @("--source-asgs") + $resolvedSrcAsgIds
+                $azArgs += @('--source-asgs') + $resolvedSrcAsgIds
             } elseif ($rule.SrcAddressPrefixes.Count -gt 0) {
-                $azArgs += @("--source-address-prefixes") + $rule.SrcAddressPrefixes
+                $azArgs += @('--source-address-prefixes') + $rule.SrcAddressPrefixes
             }
 
             if ($resolvedDstAsgIds.Count -gt 0) {
-                $azArgs += @("--destination-asgs") + $resolvedDstAsgIds
+                $azArgs += @('--destination-asgs') + $resolvedDstAsgIds
             } elseif ($rule.DstAddressPrefixes.Count -gt 0) {
-                $azArgs += @("--destination-address-prefixes") + $rule.DstAddressPrefixes
+                $azArgs += @('--destination-address-prefixes') + $rule.DstAddressPrefixes
             }
 
-            $azArgs  += @("--output","json")
+            $azArgs += '--output', 'json'
+            
             $ruleJson = az @azArgs 2>&1
             if ($LASTEXITCODE -ne 0) { throw $ruleJson }
-
+            
             $createdRule = $ruleJson | ConvertFrom-Json
-            Write-Ok "Rule '$($rule.RuleName)' created.  ID: $($createdRule.id)"
+            Write-Ok "Rule '$($rule.RuleName)' created. ID: $($createdRule.id)"
         }
         catch {
-            Write-Error "[ERROR] Failed to create NSG Rule '$($rule.RuleName)' on '$nsgName'. Details: $_"
+            Write-Error "ERROR Failed to create NSG Rule '$($rule.RuleName)' on $nsgName. Details: $($_.Exception.Message)"
             exit 1
         }
     }
