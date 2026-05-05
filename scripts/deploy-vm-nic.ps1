@@ -79,12 +79,17 @@ function Write-Ok   { param([string]$Msg) Write-Host "[OK] $Msg" -ForegroundColo
 function Write-Info { param([string]$Msg) Write-Host "[INFO] $Msg" -ForegroundColor Cyan }
 
 function Normalize-PortRanges {
-    param([string]$InputText, [string]$FieldName)
+    param(
+        [string]$InputText,
+        [string]$FieldName
+    )
+
     if ([string]::IsNullOrWhiteSpace($InputText)) {
         return @("*")
     }
 
-    $items = $InputText -split ',' |
+    # Accept comma OR whitespace separated values
+    $items = $InputText -split '[,\s]+' |
         ForEach-Object { $_.Trim() } |
         Where-Object { $_ -ne '' }
 
@@ -100,14 +105,17 @@ function Normalize-PortRanges {
     }
 
     foreach ($item in $items) {
-        if ($item -notmatch '^\d{1,5}$|^\d{1,5}-\d{1,5}$') {
+        if ($item -notmatch '^\d{1,5}(-\d{1,5})?$') {
             throw "Invalid $FieldName value '$item'. Use '*', a single port like 443, or a range like 1000-2000."
         }
 
         if ($item -match '^(\d{1,5})-(\d{1,5})$') {
             $start = [int]$matches[1]
             $end   = [int]$matches[2]
-            if ($start -lt 0 -or $start -gt 65535 -or $end -lt 0 -or $end -gt 65535 -or $start -gt $end) {
+
+            if ($start -lt 0 -or $start -gt 65535 -or
+                $end   -lt 0 -or $end   -gt 65535 -or
+                $start -gt $end) {
                 throw "Invalid $FieldName range '$item'. Port numbers must be 0-65535 and start must be <= end."
             }
         }
@@ -119,7 +127,7 @@ function Normalize-PortRanges {
         }
     }
 
-    return @($items)
+    return $items
 }
 
 # ==============================================================================
@@ -212,10 +220,10 @@ foreach ($subnet in $allSubnets) {
 
         # NEW: Proper port range handling with validation
         try {
-            $srcPortInput = Read-Input -Prompt "Source Port Ranges (comma-separated, e.g. * or 80,443 or 1000-2000)" -Default "*"
+            $srcPortInput = Read-Input -Prompt "Source Port Ranges (space/comma-separated, e.g. * or 80 443 or 1000-2000)" -Default "*"
             $srcPorts = Normalize-PortRanges -InputText $srcPortInput -FieldName "Source Port Ranges"
 
-            $dstPortInput = Read-Input -Prompt "Destination Port Ranges (comma-separated, e.g. * or 80,443 or 49152-65535)" -Default "*"
+            $dstPortInput = Read-Input -Prompt "Destination Port Ranges (space/comma-separated, e.g. * or 80 443 or 49152-65535)" -Default "*"
             $dstPorts = Normalize-PortRanges -InputText $dstPortInput -FieldName "Destination Port Ranges"
         }
         catch {
