@@ -1,0 +1,319 @@
+# ==============================================================================
+# .github/workflows/deploy-vm-nic.yml
+#
+# Orchestrates the full NIC deployment pipeline across 8 discrete steps.
+# Each step runs its own PowerShell script; state is threaded through a
+# JSON artifact (deploy-state.json) that is uploaded/downloaded between jobs.
+#
+# Inputs:
+#   vm_side   — "A" or "B"
+#   vm_name   — name of the target Azure VM
+#   config    — path to the config JSON inside the repo (default: config/deploy-config.json)
+#
+# Required Secrets (set in Settings → Secrets and variables → Actions):
+#   AZURE_CLIENT_ID       — Service principal / workload identity client ID
+#   AZURE_TENANT_ID       — Azure AD tenant ID
+#   AZURE_SUBSCRIPTION_ID — Azure subscription ID
+#   AZURE_CLIENT_SECRET   — Service principal secret (omit if using OIDC)
+# ==============================================================================
+
+name: Deploy VM NIC
+
+on:
+  workflow_dispatch:
+    inputs:
+      vm_side:
+        description: "VM side to process"
+        required: true
+        type: choice
+        options:
+          - A
+          - B
+      vm_name:
+        description: "Target VM name (A-side or B-side)"
+        required: true
+        type: string
+      config_path:
+        description: "Path to deploy-config.json inside the repo"
+        required: false
+        default: "config/deploy-config.json"
+        type: string
+
+# ── Permissions (required for OIDC federated credential login) ─────────────────
+permissions:
+  id-token: write
+  contents: read
+
+# ── Shared env ─────────────────────────────────────────────────────────────────
+env:
+  STATE_FILE: "${{ github.workspace }}/deploy-state.json"
+  CONFIG_FILE: "${{ github.workspace }}/${{ github.event.inputs.config_path }}"
+
+jobs:
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 1 — Resolve location & initialise state
+  # ────────────────────────────────────────────────────────────────────────────
+  resolve-location:
+    name: "01 · Resolve Location"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          # If using client-secret instead of OIDC, replace the three lines
+          # above with:
+          #   creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Run 01-resolve-location.ps1
+        shell: pwsh
+        run: |
+          ./scripts/01-resolve-location.ps1 `
+            -ConfigPath    "${{ env.CONFIG_FILE }}" `
+            -VmSide        "${{ github.event.inputs.vm_side }}" `
+            -VmName        "${{ github.event.inputs.vm_name }}" `
+            -StateFilePath "${{ env.STATE_FILE }}"
+
+      - name: Upload state artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: deploy-state
+          path: ${{ env.STATE_FILE }}
+          retention-days: 1
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 2 — Create Application Security Group
+  # ────────────────────────────────────────────────────────────────────────────
+  create-asg:
+    name: "02 · Create ASG"
+    runs-on: ubuntu-latest
+    needs: resolve-location
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download state artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: deploy-state
+          path: ${{ github.workspace }}
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Run 02-create-asg.ps1
+        shell: pwsh
+        run: |
+          ./scripts/02-create-asg.ps1 `
+            -StateFilePath "${{ env.STATE_FILE }}"
+
+      - name: Upload updated state
+        uses: actions/upload-artifact@v4
+        with:
+          name: deploy-state
+          path: ${{ env.STATE_FILE }}
+          retention-days: 1
+          overwrite: true
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 3 — Create NIC on Subnet 3
+  # ────────────────────────────────────────────────────────────────────────────
+  create-nic:
+    name: "03 · Create NIC"
+    runs-on: ubuntu-latest
+    needs: create-asg
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download state artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: deploy-state
+          path: ${{ github.workspace }}
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Run 03-create-nic.ps1
+        shell: pwsh
+        run: |
+          ./scripts/03-create-nic.ps1 `
+            -StateFilePath "${{ env.STATE_FILE }}"
+
+      - name: Upload updated state
+        uses: actions/upload-artifact@v4
+        with:
+          name: deploy-state
+          path: ${{ env.STATE_FILE }}
+          retention-days: 1
+          overwrite: true
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 4 — Create NSG Rules (all three NSGs)
+  # ────────────────────────────────────────────────────────────────────────────
+  create-nsg-rules:
+    name: "04 · Create NSG Rules"
+    runs-on: ubuntu-latest
+    needs: create-nic
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download state artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: deploy-state
+          path: ${{ github.workspace }}
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Run 04-create-nsg-rules.ps1
+        shell: pwsh
+        run: |
+          ./scripts/04-create-nsg-rules.ps1 `
+            -ConfigPath    "${{ env.CONFIG_FILE }}" `
+            -StateFilePath "${{ env.STATE_FILE }}"
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 5 — Check VM state and stop if running
+  # ────────────────────────────────────────────────────────────────────────────
+  check-vm-state:
+    name: "05 · Check & Stop VM"
+    runs-on: ubuntu-latest
+    needs: create-nsg-rules
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download state artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: deploy-state
+          path: ${{ github.workspace }}
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Run 05-check-vm-state.ps1
+        shell: pwsh
+        run: |
+          ./scripts/05-check-vm-state.ps1 `
+            -StateFilePath "${{ env.STATE_FILE }}"
+
+      - name: Upload updated state
+        uses: actions/upload-artifact@v4
+        with:
+          name: deploy-state
+          path: ${{ env.STATE_FILE }}
+          retention-days: 1
+          overwrite: true
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 6 — Attach NIC to VM
+  # ────────────────────────────────────────────────────────────────────────────
+  attach-nic:
+    name: "06 · Attach NIC to VM"
+    runs-on: ubuntu-latest
+    needs: check-vm-state
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download state artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: deploy-state
+          path: ${{ github.workspace }}
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Run 06-attach-nic.ps1
+        shell: pwsh
+        run: |
+          ./scripts/06-attach-nic.ps1 `
+            -StateFilePath "${{ env.STATE_FILE }}"
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 7 — Start VM (conditional)
+  # ────────────────────────────────────────────────────────────────────────────
+  start-vm:
+    name: "07 · Start VM"
+    runs-on: ubuntu-latest
+    needs: attach-nic
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download state artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: deploy-state
+          path: ${{ github.workspace }}
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Run 07-start-vm.ps1
+        shell: pwsh
+        run: |
+          ./scripts/07-start-vm.ps1 `
+            -StateFilePath "${{ env.STATE_FILE }}"
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 8 — Summary
+  # ────────────────────────────────────────────────────────────────────────────
+  summary:
+    name: "08 · Deployment Summary"
+    runs-on: ubuntu-latest
+    needs: start-vm
+    if: always()   # always print summary, even if a prior job failed
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download state artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: deploy-state
+          path: ${{ github.workspace }}
+
+      - name: Run 08-summary.ps1
+        shell: pwsh
+        run: |
+          ./scripts/08-summary.ps1 `
+            -ConfigPath    "${{ env.CONFIG_FILE }}" `
+            -StateFilePath "${{ env.STATE_FILE }}"

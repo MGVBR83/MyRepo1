@@ -1,0 +1,85 @@
+{
+  "resourceGroupName": "my-resource-group",
+  "location": "",
+  "subnet1Id": "/subscriptions/<sub-id>/resourceGroups/<rg>/providers/Microsoft.Network/virtualNetworks/<vnet>/subnets/subnet1",
+  "subnet2Id": "/subscriptions/<sub-id>/resourceGroups/<rg>/providers/Microsoft.Network/virtualNetworks/<vnet>/subnets/subnet2",
+  "subnet3Id": "/subscriptions/<sub-id>/resourceGroups/<rg>/providers/Microsoft.Network/virtualNetworks/<vnet>/subnets/subnet3",
+  "subnet1NsgName": "subnet1-nsg",
+  "subnet2NsgName": "subnet2-nsg",
+  "subnet3NsgName": "subnet3-nsg",
+  "asgName": "my-app-security-group",
+  "newNicName": "my-new-nic",
+  "nsgRules": {
+    "subnet1-nsg": [
+      {
+        "ruleName": "Allow-SSH-Inbound",
+        "priority": 100,
+        "access": "Allow",
+        "direction": "Inbound",
+        "protocol": "Tcp",
+        "sourcePortRanges": ["*"],
+        "destinationPortRanges": ["22"],
+        "useAsgAsSource": false,
+        "sourceAddressPrefixes": ["10.0.0.0/8"],
+        "useAsgAsDestination": true,
+        "destinationAsgId": ""
+      },
+      {
+        "ruleName": "Allow-HTTPS-Inbound",
+        "priority": 110,
+        "access": "Allow",
+        "direction": "Inbound",
+        "protocol": "Tcp",
+        "sourcePortRanges": ["*"],
+        "destinationPortRanges": ["443"],
+        "useAsgAsSource": false,
+        "sourceAddressPrefixes": ["*"],
+        "useAsgAsDestination": true,
+        "destinationAsgId": ""
+      }
+    ],
+    "subnet2-nsg": [
+      {
+        "ruleName": "Allow-Internal-Inbound",
+        "priority": 100,
+        "access": "Allow",
+        "direction": "Inbound",
+        "protocol": "*",
+        "sourcePortRanges": ["*"],
+        "destinationPortRanges": ["*"],
+        "useAsgAsSource": true,
+        "sourceAsgId": "",
+        "useAsgAsDestination": true,
+        "destinationAsgId": ""
+      }
+    ],
+    "subnet3-nsg": [
+      {
+        "ruleName": "Allow-Cluster-Inbound",
+        "priority": 100,
+        "access": "Allow",
+        "direction": "Inbound",
+        "protocol": "Tcp",
+        "sourcePortRanges": ["*"],
+        "destinationPortRanges": ["3343", "135", "49152-65535"],
+        "useAsgAsSource": true,
+        "sourceAsgId": "",
+        "useAsgAsDestination": true,
+        "destinationAsgId": ""
+      },
+      {
+        "ruleName": "Deny-All-Inbound",
+        "priority": 4096,
+        "access": "Deny",
+        "direction": "Inbound",
+        "protocol": "*",
+        "sourcePortRanges": ["*"],
+        "destinationPortRanges": ["*"],
+        "useAsgAsSource": false,
+        "sourceAddressPrefixes": ["*"],
+        "useAsgAsDestination": false,
+        "destinationAddressPrefixes": ["*"]
+      }
+    ]
+  }
+}
