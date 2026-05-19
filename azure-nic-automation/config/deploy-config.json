@@ -1,5 +1,6 @@
 {
   "resourceGroupName": "my-resource-group",
+  "nsgresourceGroupName": "my-resource-group1",
   "location": "",
   "subnet1Id": "/subscriptions/<sub-id>/resourceGroups/<rg>/providers/Microsoft.Network/virtualNetworks/<vnet>/subnets/subnet1",
   "subnet2Id": "/subscriptions/<sub-id>/resourceGroups/<rg>/providers/Microsoft.Network/virtualNetworks/<vnet>/subnets/subnet2",
