@@ -62,7 +62,7 @@ $nsgEntries = @(
 
 # Count total rules for step display
 $allRules   = $config.nsgRules.PSObject.Properties | ForEach-Object { $_.Value }
-$totalRules = ($allRules | Measure-Object -Property Count -Sum).Sum
+$totalRules = ($allRules | Measure-Object).Count
 $stepNum    = 0
 
 Write-Info "Total NSG rules to create: $totalRules"
