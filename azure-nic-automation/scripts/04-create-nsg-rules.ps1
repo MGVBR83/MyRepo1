@@ -37,7 +37,7 @@ if (-not (Test-Path $StateFilePath)) { Write-Error "[ERROR] State not found: $St
 $config = Get-Content $ConfigPath    -Raw | ConvertFrom-Json
 $state  = Get-Content $StateFilePath -Raw | ConvertFrom-Json
 
-$resourceGroupName = $state.resourceGroupName
+$resourceGroupName = $config.nsgresourceGroupName
 $asgId             = $state.asgId
 
 if ([string]::IsNullOrWhiteSpace($asgId)) {
@@ -55,9 +55,9 @@ function Resolve-AsgId {
 
 # ── Build ordered list of NSGs from state ─────────────────────────────────────
 $nsgEntries = @(
-    @{ Label = "Subnet 1"; NsgName = $state.subnet1NsgName },
-    @{ Label = "Subnet 2"; NsgName = $state.subnet2NsgName },
-    @{ Label = "Subnet 3"; NsgName = $state.subnet3NsgName }
+    @{ Label = "Subnet 1"; NsgName = $config.subnet1NsgName },
+    @{ Label = "Subnet 2"; NsgName = $config.subnet2NsgName },
+    @{ Label = "Subnet 3"; NsgName = $config.subnet3NsgName }
 )
 
 # Count total rules for step display
@@ -88,6 +88,10 @@ foreach ($entry in $nsgEntries) {
         Write-Step $stepNum $totalRules "Creating rule '$($rule.ruleName)' on NSG '$nsgName'..."
 
         try {
+            # ── FIX: Cast JSON arrays to flat string arrays ────────────────────
+            $srcPorts = @($rule.sourcePortRanges      | ForEach-Object { [string]$_ })
+            $dstPorts = @($rule.destinationPortRanges | ForEach-Object { [string]$_ })
+
             # ── Base az CLI arguments ──────────────────────────────────────────
             $azArgs = @(
                 "network","nsg","rule","create",
@@ -100,29 +104,37 @@ foreach ($entry in $nsgEntries) {
                 "--protocol",       $rule.protocol,
                 "--source-port-ranges"
             )
-            # Append source port ranges (array in JSON)
-            $azArgs += $rule.sourcePortRanges
+
+            $azArgs += $srcPorts
             $azArgs += @("--destination-port-ranges")
-            $azArgs += $rule.destinationPortRanges
+            $azArgs += $dstPorts
 
             # ── Source: ASG or address prefix ─────────────────────────────────
             if ($rule.useAsgAsSource) {
-                $resolvedSrcAsg = Resolve-AsgId -Id $rule.sourceAsgId
-                $azArgs += @("--source-asgs", $resolvedSrcAsg)
+                # FIX: Guard missing property under StrictMode
+                $srcId          = if ($rule.PSObject.Properties['sourceAsgId']) { $rule.sourceAsgId } else { "" }
+                $resolvedSrcAsg = Resolve-AsgId -Id $srcId
+                $azArgs        += @("--source-asgs", $resolvedSrcAsg)
                 Write-Info "  Source ASG: $resolvedSrcAsg"
             } else {
-                $azArgs += @("--source-address-prefixes")
-                $azArgs += $rule.sourceAddressPrefixes
+                # FIX: Cast address prefix array to flat string array
+                $srcPrefixes = @($rule.sourceAddressPrefixes | ForEach-Object { [string]$_ })
+                $azArgs     += @("--source-address-prefixes")
+                $azArgs     += $srcPrefixes
             }
 
             # ── Destination: ASG or address prefix ────────────────────────────
             if ($rule.useAsgAsDestination) {
-                $resolvedDstAsg = Resolve-AsgId -Id $rule.destinationAsgId
-                $azArgs += @("--destination-asgs", $resolvedDstAsg)
+                # FIX: Guard missing property under StrictMode
+                $dstId          = if ($rule.PSObject.Properties['destinationAsgId']) { $rule.destinationAsgId } else { "" }
+                $resolvedDstAsg = Resolve-AsgId -Id $dstId
+                $azArgs        += @("--destination-asgs", $resolvedDstAsg)
                 Write-Info "  Destination ASG: $resolvedDstAsg"
             } else {
-                $azArgs += @("--destination-address-prefixes")
-                $azArgs += $rule.destinationAddressPrefixes
+                # FIX: Cast address prefix array to flat string array
+                $dstPrefixes = @($rule.destinationAddressPrefixes | ForEach-Object { [string]$_ })
+                $azArgs     += @("--destination-address-prefixes")
+                $azArgs     += $dstPrefixes
             }
 
             $azArgs  += @("--output", "json")
