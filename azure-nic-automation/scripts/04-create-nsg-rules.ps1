@@ -19,14 +19,44 @@ param (
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
+# ── Prevent Git-Bash / MSYS from converting "*" and CIDR prefixes ─────────────
+$env:MSYS_NO_PATHCONV   = 1
+$env:MSYS2_ARG_CONV_EXCL = "*"
+
+# ── Console helpers ────────────────────────────────────────────────────────────
 function Write-Section { param([string]$Title)
     Write-Host "`n============================================================" -ForegroundColor Cyan
     Write-Host "  $Title" -ForegroundColor Cyan
     Write-Host "============================================================" -ForegroundColor Cyan
 }
-function Write-Ok      { param([string]$Msg) Write-Host "[OK]   $Msg" -ForegroundColor Green }
-function Write-Info    { param([string]$Msg) Write-Host "[INFO] $Msg" -ForegroundColor Cyan }
-function Write-Step    { param([int]$C,[int]$T,[string]$M) Write-Host "`n[STEP $C/$T] $M" -ForegroundColor Yellow }
+function Write-Ok   { param([string]$Msg) Write-Host "[OK]   $Msg" -ForegroundColor Green }
+function Write-Info { param([string]$Msg) Write-Host "[INFO] $Msg" -ForegroundColor Cyan }
+function Write-Step { param([int]$C, [int]$T, [string]$M)
+    Write-Host "`n[STEP $C/$T] $M" -ForegroundColor Yellow
+}
+
+# ── FIX 2 & 3: Helpers that quote bare "*" so az CLI receives a literal "*" ───
+#
+#    PowerShell passes array elements as separate argv tokens. A bare * token
+#    can be glob-expanded or rejected by az CLI as an invalid range/prefix.
+#    Wrapping it in an extra layer of double-quotes ("\"*\"") forces the CLI
+#    to treat it as the string asterisk.
+#
+function Format-PortRange {
+    param([object]$Ports)
+    return @($Ports | ForEach-Object {
+        $val = [string]$_
+        if ($val -eq '*') { '"*"' } else { $val }
+    })
+}
+
+function Format-AddressPrefix {
+    param([object]$Prefixes)
+    return @($Prefixes | ForEach-Object {
+        $val = [string]$_
+        if ($val -eq '*') { '"*"' } else { $val }
+    })
+}
 
 Write-Section "SECTION 4 — Create NSG Rules"
 
@@ -53,18 +83,24 @@ function Resolve-AsgId {
     return $Id
 }
 
-# ── Build ordered list of NSGs from state ─────────────────────────────────────
+# ── Build ordered list of NSGs ─────────────────────────────────────────────────
 $nsgEntries = @(
     @{ Label = "Subnet 1"; NsgName = $config.subnet1NsgName },
     @{ Label = "Subnet 2"; NsgName = $config.subnet2NsgName },
     @{ Label = "Subnet 3"; NsgName = $config.subnet3NsgName }
 )
 
-# Count total rules for step display
-$allRules   = $config.nsgRules.PSObject.Properties | ForEach-Object { $_.Value }
-$totalRules = ($allRules | Measure-Object).Count
-$stepNum    = 0
+# ── FIX 1: Count individual rules across ALL NSGs, not the number of NSGs ─────
+#    Original code called Measure-Object on the outer array of Value objects
+#    (one per NSG key), which gave 3 instead of the true rule count (5).
+$totalRules = (
+    $config.nsgRules.PSObject.Properties |
+    ForEach-Object { $_.Value } |   # each Value is itself a rule array
+    ForEach-Object { $_ } |         # flatten one level → individual rule objects
+    Measure-Object
+).Count
 
+$stepNum = 0
 Write-Info "Total NSG rules to create: $totalRules"
 
 foreach ($entry in $nsgEntries) {
@@ -88,13 +124,13 @@ foreach ($entry in $nsgEntries) {
         Write-Step $stepNum $totalRules "Creating rule '$($rule.ruleName)' on NSG '$nsgName'..."
 
         try {
-            # ── FIX: Cast JSON arrays to flat string arrays ────────────────────
-            $srcPorts = @($rule.sourcePortRanges      | ForEach-Object { [string]$_ })
-            $dstPorts = @($rule.destinationPortRanges | ForEach-Object { [string]$_ })
+            # ── FIX 2: Use Format-PortRange to safely handle "*" ──────────────
+            $srcPorts = Format-PortRange -Ports $rule.sourcePortRanges
+            $dstPorts = Format-PortRange -Ports $rule.destinationPortRanges
 
             # ── Base az CLI arguments ──────────────────────────────────────────
             $azArgs = @(
-                "network","nsg","rule","create",
+                "network", "nsg", "rule", "create",
                 "--resource-group", $resourceGroupName,
                 "--nsg-name",       $nsgName,
                 "--name",           $rule.ruleName,
@@ -104,35 +140,32 @@ foreach ($entry in $nsgEntries) {
                 "--protocol",       $rule.protocol,
                 "--source-port-ranges"
             )
-
             $azArgs += $srcPorts
             $azArgs += @("--destination-port-ranges")
             $azArgs += $dstPorts
 
             # ── Source: ASG or address prefix ─────────────────────────────────
             if ($rule.useAsgAsSource) {
-                # FIX: Guard missing property under StrictMode
                 $srcId          = if ($rule.PSObject.Properties['sourceAsgId']) { $rule.sourceAsgId } else { "" }
                 $resolvedSrcAsg = Resolve-AsgId -Id $srcId
                 $azArgs        += @("--source-asgs", $resolvedSrcAsg)
                 Write-Info "  Source ASG: $resolvedSrcAsg"
             } else {
-                # FIX: Cast address prefix array to flat string array
-                $srcPrefixes = @($rule.sourceAddressPrefixes | ForEach-Object { [string]$_ })
+                # FIX 2: Use Format-AddressPrefix to safely handle "*"
+                $srcPrefixes = Format-AddressPrefix -Prefixes $rule.sourceAddressPrefixes
                 $azArgs     += @("--source-address-prefixes")
                 $azArgs     += $srcPrefixes
             }
 
             # ── Destination: ASG or address prefix ────────────────────────────
             if ($rule.useAsgAsDestination) {
-                # FIX: Guard missing property under StrictMode
                 $dstId          = if ($rule.PSObject.Properties['destinationAsgId']) { $rule.destinationAsgId } else { "" }
                 $resolvedDstAsg = Resolve-AsgId -Id $dstId
                 $azArgs        += @("--destination-asgs", $resolvedDstAsg)
                 Write-Info "  Destination ASG: $resolvedDstAsg"
             } else {
-                # FIX: Cast address prefix array to flat string array
-                $dstPrefixes = @($rule.destinationAddressPrefixes | ForEach-Object { [string]$_ })
+                # FIX 2: Use Format-AddressPrefix to safely handle "*"
+                $dstPrefixes = Format-AddressPrefix -Prefixes $rule.destinationAddressPrefixes
                 $azArgs     += @("--destination-address-prefixes")
                 $azArgs     += $dstPrefixes
             }
