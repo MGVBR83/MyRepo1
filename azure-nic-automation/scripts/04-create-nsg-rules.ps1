@@ -1,10 +1,6 @@
 # ==============================================================================
 # 04-create-nsg-rules.ps1
-#
 # SECTION 4 — Create NSG rules for all three subnets.
-# Reads NSG rule definitions from deploy-config.json.
-# Resolves the "__USE_SCRIPT_ASG__" placeholder (empty sourceAsgId /
-# destinationAsgId) to the real ASG ID from deploy-state.json.
 # ==============================================================================
 
 [CmdletBinding()]
@@ -35,13 +31,6 @@ function Write-Step { param([int]$C, [int]$T, [string]$M)
     Write-Host "`n[STEP $C/$T] $M" -ForegroundColor Yellow
 }
 
-# ── FIX 2 & 3: Helpers that quote bare "*" so az CLI receives a literal "*" ───
-#
-#    PowerShell passes array elements as separate argv tokens. A bare * token
-#    can be glob-expanded or rejected by az CLI as an invalid range/prefix.
-#    Wrapping it in an extra layer of double-quotes ("\"*\"") forces the CLI
-#    to treat it as the string asterisk.
-#
 function Format-PortRange {
     param([object]$Ports)
     return @($Ports | ForEach-Object {
@@ -89,10 +78,6 @@ $nsgEntries = @(
     @{ Label = "Subnet 2"; NsgName = $config.subnet2NsgName },
     @{ Label = "Subnet 3"; NsgName = $config.subnet3NsgName }
 )
-
-# ── FIX 1: Count individual rules across ALL NSGs, not the number of NSGs ─────
-#    Original code called Measure-Object on the outer array of Value objects
-#    (one per NSG key), which gave 3 instead of the true rule count (5).
 $totalRules = (
     $config.nsgRules.PSObject.Properties |
     ForEach-Object { $_.Value } |   # each Value is itself a rule array
@@ -124,7 +109,6 @@ foreach ($entry in $nsgEntries) {
         Write-Step $stepNum $totalRules "Creating rule '$($rule.ruleName)' on NSG '$nsgName'..."
 
         try {
-            # ── FIX 2: Use Format-PortRange to safely handle "*" ──────────────
             $srcPorts = Format-PortRange -Ports $rule.sourcePortRanges
             $dstPorts = Format-PortRange -Ports $rule.destinationPortRanges
 
