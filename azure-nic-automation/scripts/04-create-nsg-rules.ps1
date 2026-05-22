@@ -35,7 +35,7 @@ function Format-PortRange {
     param([object]$Ports)
     return @($Ports | ForEach-Object {
         $val = [string]$_
-        if ($val -eq '*') { '"*"' } else { $val }
+        if ($val -eq "*") { "'*'" } else { $val }
     })
 }
 
@@ -43,7 +43,7 @@ function Format-AddressPrefix {
     param([object]$Prefixes)
     return @($Prefixes | ForEach-Object {
         $val = [string]$_
-        if ($val -eq '*') { '"*"' } else { $val }
+        if ($val -eq "*") { "'*'" } else { $val }
     })
 }
 
