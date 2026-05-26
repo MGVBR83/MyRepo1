@@ -3,13 +3,13 @@
 #
 # SECTION 7 — Start VM only if it was running before this deployment.
 # vmWasRunning is read from deploy-state.json (set by 05-check-vm-state.ps1).
-# If the VM was already stopped before this run, it is left stopped.
+# If the VM was already stopped/deallocated before this run, it is left stopped.
 # ==============================================================================
 
 [CmdletBinding()]
 param (
     [Parameter(Mandatory = $true)]
-    [string]$StateFilePath          # Path to deploy-state.json (read-only)
+    [string]$StateFilePath
 )
 
 Set-StrictMode -Version Latest
@@ -25,30 +25,42 @@ function Write-Info { param([string]$Msg) Write-Host "[INFO] $Msg" -ForegroundCo
 
 Write-Section "SECTION 7 — Start VM"
 
-# ── Load state ─────────────────────────────────────────────────────────────────
-if (-not (Test-Path $StateFilePath)) {
-    Write-Error "[ERROR] State file not found: $StateFilePath"; exit 1
+if (-not (Test-Path -LiteralPath $StateFilePath)) {
+    Write-Error "[ERROR] State file not found: $StateFilePath"
+    exit 1
 }
-$state = Get-Content $StateFilePath -Raw | ConvertFrom-Json
+
+$state = Get-Content -LiteralPath $StateFilePath -Raw | ConvertFrom-Json
 
 $resourceGroupName = $state.resourceGroupName
 $vmName            = $state.vmName
 $vmWasRunning      = [bool]$state.vmWasRunning
 
+if ([string]::IsNullOrWhiteSpace($resourceGroupName)) {
+    Write-Error "[ERROR] resourceGroupName is missing in state file."
+    exit 1
+}
+if ([string]::IsNullOrWhiteSpace($vmName)) {
+    Write-Error "[ERROR] vmName is missing in state file."
+    exit 1
+}
+
 if ($vmWasRunning) {
-    Write-Info "VM '$vmName' was running before this deployment — restarting..."
+    Write-Info "VM '$vmName' was running before this deployment — starting..."
 
     $startOut = az vm start `
         --resource-group $resourceGroupName `
-        --name           $vmName 2>&1
+        --name           $vmName `
+        --output         none 2>&1
 
     if ($LASTEXITCODE -ne 0) {
-        Write-Error "[ERROR] Failed to start VM '$vmName'. Details: $startOut"; exit 1
+        Write-Error "[ERROR] Failed to start VM '$vmName'. Details: $startOut"
+        exit 1
     }
 
     Write-Ok "VM '$vmName' started successfully."
 }
 else {
-    Write-Info "VM '$vmName' was already stopped before this run — leaving in stopped state."
+    Write-Info "VM '$vmName' was already stopped/deallocated before this run — leaving it stopped."
     Write-Info "Start the VM manually when ready."
 }
