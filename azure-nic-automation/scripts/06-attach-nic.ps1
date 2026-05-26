@@ -2,14 +2,13 @@
 # 06-attach-nic.ps1
 #
 # SECTION 6 — Attach the new NIC to the target VM.
-# VM must already be in a stopped/deallocated state (ensured by
-# 05-check-vm-state.ps1).
+# VM must already be in a stopped/deallocated state.
 # ==============================================================================
 
 [CmdletBinding()]
 param (
     [Parameter(Mandatory = $true)]
-    [string]$StateFilePath          # Path to deploy-state.json (read-only)
+    [string]$StateFilePath
 )
 
 Set-StrictMode -Version Latest
@@ -25,15 +24,29 @@ function Write-Info { param([string]$Msg) Write-Host "[INFO] $Msg" -ForegroundCo
 
 Write-Section "SECTION 6 — Attach NIC to VM"
 
-# ── Load state ─────────────────────────────────────────────────────────────────
-if (-not (Test-Path $StateFilePath)) {
-    Write-Error "[ERROR] State file not found: $StateFilePath"; exit 1
+if (-not (Test-Path -LiteralPath $StateFilePath)) {
+    Write-Error "[ERROR] State file not found: $StateFilePath"
+    exit 1
 }
-$state = Get-Content $StateFilePath -Raw | ConvertFrom-Json
+
+$state = Get-Content -LiteralPath $StateFilePath -Raw | ConvertFrom-Json
 
 $resourceGroupName = $state.resourceGroupName
 $vmName            = $state.vmName
 $newNicName        = $state.newNicName
+
+if ([string]::IsNullOrWhiteSpace($resourceGroupName)) {
+    Write-Error "[ERROR] resourceGroupName is missing in state file."
+    exit 1
+}
+if ([string]::IsNullOrWhiteSpace($vmName)) {
+    Write-Error "[ERROR] vmName is missing in state file."
+    exit 1
+}
+if ([string]::IsNullOrWhiteSpace($newNicName)) {
+    Write-Error "[ERROR] newNicName is missing in state file."
+    exit 1
+}
 
 Write-Info "Attaching NIC '$newNicName' to VM '$vmName'..."
 
@@ -44,7 +57,8 @@ $attachOut = az vm nic add `
     --output         json 2>&1
 
 if ($LASTEXITCODE -ne 0) {
-    Write-Error "[ERROR] Failed to attach NIC '$newNicName' to VM '$vmName'. Details: $attachOut"; exit 1
+    Write-Error "[ERROR] Failed to attach NIC '$newNicName' to VM '$vmName'. Details: $attachOut"
+    exit 1
 }
 
 Write-Ok "NIC '$newNicName' attached to VM '$vmName' successfully."
