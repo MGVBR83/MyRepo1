@@ -1,0 +1,77 @@
+GLOBALSCAPE EFT Azure Cloud Migration Architecture
+===================================================
+1. Overview
+===========
+This document describes the end-to-end architecture for the migration of Globalscape EFT (Enhanced File Transfer) from an on-premises deployment to Microsoft Azure. It covers all components in the traffic path beginning from FTP client machines through the corporate network, DMZ, EFT servers, message queuing, and into Azure-managed storage and database services.
+
+2. Architecture Overview
+========================
+1. FTP Client
+2. Private DNS resolver
+3. F5 VPN gateway
+4. Azure Load Balancer (DMZ)
+5. DMZ server
+6. Azure Load Balancer
+7. Globalscape EFT
+8. MSMQ
+9. Azure LB + Private DNS
+10. Azure File Share
+11. Azure SQL Database
+
+3. Component Details
+====================
+3.1 FTP Client Machines: 
+========================
+FTP client machines are workstations or servers within the corporate network that initiate file transfers to the Globalscape EFT platform. They support standard file transfer protocols and are configured to route through the corporate DNS and VPN infrastructure.
+
+3.2 Private DNS Resolver:
+=========================
+The Private DNS Resolver is the first network component that processes a client's file transfer request. It serves as the authoritative DNS service for all internal FTP/SFTP hostnames, ensuring that name resolution is always directed to internal IPs rather than public DNS.
+
+3.3 F5 VPN gateway:
+===================
+The F5 BIG-IP platform serves as the secure entry point for all FTP client traffic into the managed network zones. It combines VPN tunnel termination, SSL offload, and application-layer routing.
+•	Terminates SSL VPN / IPSec tunnels from FTP client machines
+•	Performs client certificate or credential-based authentication before forwarding sessions
+•	Applies access control policies which are only authenticated, authorised users may reach DMZ servers
+•	Forwards traffic to the Azure Load Balancer sitting in front of the DMZ server tier
+
+3.4 DMZ servers:
+================
+The DMZ tier contains two servers configured in a Primary (Active) / Secondary (Standby) arrangement. These servers sit at the network boundary between the corporate VPN layer and the internal EFT server zone, providing an additional security inspection layer.
+
+3.5 Globalscape EFT servers:
+============================
+Globalscape EFT (Enhanced File Transfer) is the core managed file transfer (MFT) platform. It receives inbound file sessions from the DMZ tier and then applies business rules and workflow automation to enforce encryption at rest and in transit and finally routes completed files to Azure storage.
+
+Integration with MSMQ:
+----------------------
+After each successful transfer, EFT publishes a message to MSMQ for downstream Azure processing.
+
+3.6 MSMQ (Microsoft Message Queuing):
+=====================================
+MSMQ provides reliable, transactional message delivery between the Globalscape EFT servers and the Azure-side data pipeline. It acts as a durable buffer ensuring that file transfer events are not lost even during transient Azure connectivity failures.
+
+4. Azure Cloud Components:
+==========================
+4.1 Azure Load Balancer:
+------------------------
+An Azure Standard Internal Load Balancer sits at the Azure boundary, receiving file data forwarded from the on-premises EFT servers over an ExpressRoute or VPN connection. It distributes traffic to Azure File Share endpoints.
+
+4.2 Azure Private DNS Resolver:
+-------------------------------
+Azure Private DNS Resolver provides DNS resolution for all private Azure service endpoints within the Virtual Network. It ensures that storage and database FQDNs resolve to private IP addresses, keeping all traffic off the public internet.
+•	Resolves *.privatelink.file.core.windows.net to private IP of Azure File Share
+•	Resolves *.privatelink.database.windows.net to private IP of Azure SQL Database
+
+4.3 Azure File Share:
+---------------------
+Azure File Share is the landing zone for all files transferred by Globalscape EFT. It provides fully managed SMB/NFS file storage with built-in redundancy, snapshots, and access controls.
+
+4.4 Azure SQL Database:
+-----------------------
+Azure SQL Database stores all transfer metadata, audit records, and MSMQ event payloads consumed from the on-premises queue. It is a fully managed PaaS relational database with built-in high availability, automated backups, and intelligent query performance.
+
+4.5 Azure Private Endpoints:
+----------------------------
+Private Endpoints provide private IP connectivity to Azure PaaS services (File Share, SQL Database) within the VNet. All traffic between on-premises and Azure services travels over ExpressRoute or VPN, never via the public internet.
