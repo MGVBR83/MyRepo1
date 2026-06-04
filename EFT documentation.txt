@@ -1,0 +1,315 @@
+DOCUMENT TITLE
+Azure-Based Managed File Transfer (MFT) Architecture with DMZ and Globalscape EFT
+
+=====================================================================
+1. OVERVIEW
+=====================================================================
+
+This architecture provides a secure file transfer solution between
+on-premises FTP clients and an Azure-hosted Managed File Transfer (MFT)
+environment using Globalscape EFT. The design leverages a DMZ layer,
+internal application subnet, Azure Storage Account, Azure File Share,
+and Azure SQL Database to securely process, store, and manage file
+transfer operations.
+
+The architecture ensures:
+
+- Secure file transfer from on-premises systems to Azure.
+- Isolation of internet-facing components using a DMZ subnet.
+- Secure storage of transferred files.
+- Centralized metadata and configuration management using Azure SQL.
+- Controlled communication through VPN connectivity.
+
+=====================================================================
+2. ARCHITECTURE COMPONENTS
+=====================================================================
+
+2.1 On-Premises Environment
+---------------------------
+
+Components:
+- FTP Clients
+- DNS Resolver
+- F5 VPN Gateway
+
+Responsibilities:
+- Initiates FTP file transfers.
+- Resolves Azure service endpoints through DNS.
+- Routes traffic securely to Azure through VPN.
+
+Traffic Flow:
+FTP Client -> DNS Resolver -> F5 VPN -> Azure
+
+=====================================================================
+2.2 VPN Connectivity
+=====================================================================
+
+Component:
+- F5 VPN
+
+Purpose:
+- Provides secure encrypted communication between on-premises
+  infrastructure and Azure environment.
+- Prevents direct exposure of internal services over public internet.
+
+Protocol:
+- Site-to-Site VPN or equivalent secure tunnel.
+
+=====================================================================
+2.3 Azure DMZ Subnet
+=====================================================================
+
+Component:
+- DMZ Server VM
+
+Purpose:
+- Acts as the first entry point into Azure.
+- Provides network segmentation between external/on-premises systems
+  and internal application servers.
+- Filters and controls inbound traffic.
+
+Responsibilities:
+- Accept incoming FTP/SFTP traffic.
+- Forward approved traffic to the Globalscape EFT server.
+- Enforce security policies and access restrictions.
+
+Subnet:
+Azure DMZ Subnet
+
+Security Controls:
+- Network Security Groups (NSGs)
+- Firewall rules
+- Restricted access policies
+
+=====================================================================
+2.4 Azure Internal Subnet
+=====================================================================
+
+Component:
+- Globalscape EFT Server VM
+
+Purpose:
+- Hosts the Managed File Transfer platform.
+- Receives files from the DMZ server.
+- Processes, manages, and routes files.
+- Integrates with Azure storage services.
+
+Responsibilities:
+- User authentication.
+- File transfer management.
+- Automation workflows.
+- Audit logging.
+- Secure file delivery.
+
+Subnet:
+Azure Internal Subnet
+
+Security Controls:
+- Internal-only access.
+- Restricted inbound traffic.
+- Communication allowed only from DMZ and authorized services.
+
+=====================================================================
+2.5 Azure Storage Account
+=====================================================================
+
+Component:
+- Azure Storage Account
+
+Purpose:
+- Provides scalable and durable storage for transferred files.
+
+Services Used:
+- Azure File Share
+
+Responsibilities:
+- Store inbound and outbound files.
+- Provide persistent shared storage for EFT operations.
+- Support backup and retention requirements.
+
+Benefits:
+- High availability.
+- Scalability.
+- Secure access controls.
+
+=====================================================================
+2.6 Azure File Share
+=====================================================================
+
+Component:
+- Azure File Share
+
+Purpose:
+- Shared storage repository for EFT file processing.
+
+Responsibilities:
+- Temporary staging area for transferred files.
+- Long-term storage location if required.
+- Accessible by EFT server.
+
+Access:
+- Mounted by Globalscape EFT Server.
+- Secured using Azure Storage authentication.
+
+=====================================================================
+2.7 Azure SQL Database
+=====================================================================
+
+Component:
+- Azure SQL Database
+
+Purpose:
+- Stores application metadata and operational data.
+
+Responsibilities:
+- EFT configuration data.
+- User information.
+- Audit records.
+- Transfer history.
+- Reporting data.
+
+Benefits:
+- Managed database service.
+- Automated backup.
+- High availability.
+- Scalable performance.
+
+=====================================================================
+3. DATA FLOW
+=====================================================================
+
+Step 1:
+FTP clients initiate a file transfer request.
+
+Step 2:
+The DNS Resolver resolves the destination endpoint.
+
+Step 3:
+Traffic is securely routed through the F5 VPN connection.
+
+Step 4:
+Traffic reaches the Azure DMZ Server located in the DMZ subnet.
+
+Step 5:
+The DMZ Server validates and forwards approved traffic to the
+Globalscape EFT Server in the Internal Subnet.
+
+Step 6:
+The EFT Server processes the incoming files.
+
+Step 7:
+Files are stored in Azure File Share within the Azure Storage Account.
+
+Step 8:
+Transfer metadata, logs, and configuration information are stored
+in Azure SQL Database.
+
+=====================================================================
+4. NETWORK FLOW
+=====================================================================
+
+On-Prem FTP Client
+        |
+        v
+DNS Resolver
+        |
+        v
+F5 VPN Tunnel
+        |
+        v
+Azure DMZ Server
+        |
+        v
+Globalscape EFT Server
+        |
+        +------------------+
+        |                  |
+        v                  v
+Azure File Share     Azure SQL Database
+
+=====================================================================
+5. SECURITY DESIGN
+=====================================================================
+
+5.1 Network Segmentation
+------------------------
+- DMZ subnet separates external traffic from internal services.
+- Internal subnet hosts business-critical applications.
+
+5.2 Secure Connectivity
+-----------------------
+- Encrypted VPN tunnel between on-premises and Azure.
+- No direct exposure of internal EFT services.
+
+5.3 Access Control
+------------------
+- Role-Based Access Control (RBAC).
+- Least privilege access model.
+- Service account restrictions.
+
+5.4 Storage Security
+--------------------
+- Azure Storage encryption at rest.
+- Secure file share access.
+- Private network access.
+
+5.5 Database Security
+---------------------
+- Azure SQL encryption.
+- Firewall restrictions.
+- Authentication controls.
+
+=====================================================================
+6. HIGH AVAILABILITY RECOMMENDATIONS
+=====================================================================
+
+- Deploy multiple DMZ servers behind a load balancer.
+- Implement EFT server clustering if supported.
+- Enable Azure Storage redundancy (ZRS/GRS).
+- Configure Azure SQL high availability.
+- Implement automated backup and recovery processes.
+
+=====================================================================
+7. MONITORING AND LOGGING
+=====================================================================
+
+Recommended Services:
+- Azure Monitor
+- Log Analytics
+- Azure Security Center
+- EFT Audit Logs
+
+Monitor:
+- VPN connectivity status
+- EFT service health
+- File transfer success/failure
+- Storage utilization
+- Database performance
+- Security events
+
+=====================================================================
+8. BENEFITS OF THE SOLUTION
+=====================================================================
+
+- Secure file transfer between on-premises and Azure.
+- Network isolation through DMZ architecture.
+- Centralized file management using Globalscape EFT.
+- Scalable storage using Azure File Share.
+- Reliable metadata storage using Azure SQL Database.
+- Enhanced security through VPN and subnet segregation.
+- Improved auditing and compliance capabilities.
+
+=====================================================================
+9. ASSUMPTIONS
+=====================================================================
+
+- FTP/SFTP services are managed by Globalscape EFT.
+- VPN connectivity is established and maintained by F5.
+- Azure Storage Account and Azure SQL Database are deployed in the
+  same Azure region.
+- Appropriate NSGs, firewall rules, and RBAC permissions are configured.
+- Backup, monitoring, and disaster recovery procedures are implemented.
+
+=====================================================================
+END OF DOCUMENT
+=====================================================================
