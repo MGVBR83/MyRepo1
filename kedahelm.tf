@@ -83,3 +83,18 @@ resource "helm_release" "keda" {
 
   depends_on = [azurerm_kubernetes_cluster.main]
 }
+
+==============================================================================
+      # STEP 3 — Install kubectl + kubelogin
+      - name: Install kubelogin
+        shell: bash
+        run: |
+          az aks install-cli
+          kubectl version --client
+          kubelogin --version
+
+# Convert token for Service Principal login
+          kubelogin convert-kubeconfig -l spn \
+            --client-id     "$ARM_CLIENT_ID" \
+            --client-secret "$ARM_CLIENT_SECRET" \
+            --tenant-id     "$ARM_TENANT_ID"
