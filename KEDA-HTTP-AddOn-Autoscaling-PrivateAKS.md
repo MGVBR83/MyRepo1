@@ -196,7 +196,7 @@ spec:
 
 Apply via Run Command in the same pattern as Section 5, or through your existing GitHub Actions → Octopus/Terraform pipeline once kubeconfig/`kubelogin` access to the private cluster is wired up (per your existing CI work).
 
-### 7.3 How traffic reaches the Interceptor
+### 6.3 How traffic reaches the Interceptor
 
 For the HTTP Add-on to intercept and buffer requests while scaling from zero, incoming traffic must be routed **through the Interceptor service**, not directly to your application Service. Two common patterns:
 
@@ -205,7 +205,7 @@ For the HTTP Add-on to intercept and buffer requests while scaling from zero, in
 
 ---
 
-## 8. Testing the Autoscaling Behavior
+## 7. Testing the Autoscaling Behavior
 
 ```bash
 # Confirm scale-to-zero at rest
@@ -225,7 +225,7 @@ Expect: pod count rises within the `granularity`/`window` interval configured on
 
 ---
 
-## 9. Monitoring & Troubleshooting
+## 8. Monitoring & Troubleshooting
 
 | Symptom | Likely Cause | Check |
 |---|---|---|
@@ -235,13 +235,12 @@ Expect: pod count rises within the `granularity`/`window` interval configured on
 | Scale-down not respecting `scaledownPeriod` | Cached HPA behavior / default Kubernetes stabilization window | Cross-check `HorizontalPodAutoscaler` object's `behavior.scaleDown.stabilizationWindowSeconds` |
 ---
 
-## 10. Summary Checklist
+## 9. Summary Checklist
 
 - [ ] Confirm Terraform-managed KEDA add-on is the **only** core KEDA installation (`kube-system`, release `aks-managed-keda`)
 - [ ] Install **only** `kedacore/keda-add-ons-http` via Helm (via Run Command, given private cluster networking)
 - [ ] Route ingress/service traffic through the Interceptor
 - [ ] Define `HTTPScaledObject` per workload
 - [ ] Validate scale-to-zero and scale-out under load
-<!-- - [ ] Migrate the Run Command Helm install into your existing GitHub Actions/Terraform pipeline for repeatability, rather than leaving it as a manual Portal step -->
 
 ---
