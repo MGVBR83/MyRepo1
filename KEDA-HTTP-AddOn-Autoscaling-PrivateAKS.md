@@ -55,16 +55,14 @@ Microsoft's own documentation on the AKS-managed KEDA add-on is explicit about t
 
 ---
 
-# Confirm only the AKS-managed release remains
+## 4. Confirm only the AKS-managed release remains
+
 helm list -n kube-system | grep -i keda
 kubectl get pods -n kube-system | grep -i keda
-```
 
----
 
-## 4. Terraform Configuration (Core KEDA via Managed Add-on)
+**Terraform Configuration (Core KEDA via Managed Add-on):**
 
-```hcl
 resource "azurerm_kubernetes_cluster" "aks" {
   name                = "aks-private-cluster"
   location            = var.location
@@ -83,7 +81,7 @@ resource "azurerm_kubernetes_cluster" "aks" {
     type = "SystemAssigned"
   }
 
-  # Enables the AKS-managed KEDA add-on (core operator + metrics server)
+**Enables the AKS-managed KEDA add-on (core operator + metrics server):**
   workload_autoscaler_profile {
     keda_enabled                    = true
     vertical_pod_autoscaler_enabled = false
@@ -92,7 +90,6 @@ resource "azurerm_kubernetes_cluster" "aks" {
   oidc_issuer_enabled       = true   # required if HTTPScaledObjects/ScaledObjects use Workload Identity
   workload_identity_enabled = true
 }
-```
 
 **Verification after `terraform apply`:**
 
@@ -117,15 +114,13 @@ From the **Run command** blade (Azure Portal → AKS cluster → Kubernetes reso
 
 helm install http-add-on <<JFROG URL>> --namespace keda --create-namepsace --username << non user id>> --password << non user-id password>>
   "
-```
+
 
 ### 5.2 Verify the installation
 
 From the **Run command** blade (Azure Portal → AKS cluster → Kubernetes resources → Run command):
 
 kubectl get pods -n keda
-
-```
 
 Expected pods:
 - `keda-add-ons-http-controller-manager-*` (controller/scaler)
