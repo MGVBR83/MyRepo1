@@ -1,0 +1,84 @@
+image_templates:
+  - name: ubuntu2204-baseline
+    resource_group_id: /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-imagebuilder
+    location: eastus2
+    identity:
+      type: UserAssigned
+      identity_ids:
+        - /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-imagebuilder/providers/Microsoft.ManagedIdentity/userAssignedIdentities/uai-imagebuilder
+    tags:
+      environment: shared
+      managedBy: terraform
+    properties:
+      source:
+        type: PlatformImage
+        publisher: Canonical
+        offer: 0001-com-ubuntu-server-jammy
+        sku: 22_04-lts-gen2
+        version: latest
+      customize:
+        - type: Shell
+          name: update-packages
+          inline:
+            - sudo apt-get update
+            - sudo apt-get -y upgrade
+        - type: Shell
+          name: run-baseline-script
+          scriptUri: https://raw.githubusercontent.com/example-org/image-baselines/main/ubuntu-baseline.sh
+      distribute:
+        - type: SharedImage
+          runOutputName: ubuntu2204-baseline-sig
+          galleryImageId: /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-imagebuilder/providers/Microsoft.Compute/galleries/sig_imagebuilder/images/ubuntu2204-baseline
+          replicationMode: Full
+          targetRegions:
+            - name: eastus2
+              replicaCount: 1
+              storageAccountType: Standard_LRS
+            - name: westus2
+              replicaCount: 1
+              storageAccountType: Standard_LRS
+          versioning:
+            scheme: Latest
+            major: 1
+      buildTimeoutInMinutes: 120
+      autoRun:
+        state: Disabled
+      vmProfile:
+        vmSize: Standard_D2ds_v4
+        osDiskSizeGB: 64
+        vnetConfig:
+          subnetId: /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-network/providers/Microsoft.Network/virtualNetworks/vnet-imagebuilder/subnets/snet-imagebuilder
+
+  - name: win2022-baseline
+    resource_group_id: /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-imagebuilder
+    location: eastus2
+    identity:
+      type: UserAssigned
+      identity_ids:
+        - /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-imagebuilder/providers/Microsoft.ManagedIdentity/userAssignedIdentities/uai-imagebuilder
+    tags:
+      environment: shared
+      managedBy: terraform
+    properties:
+      source:
+        type: PlatformImage
+        publisher: MicrosoftWindowsServer
+        offer: WindowsServer
+        sku: 2022-datacenter-azure-edition
+        version: latest
+      customize:
+        - type: WindowsUpdate
+          name: apply-updates
+          searchCriteria: IsInstalled=0
+          updateLimit: 20
+        - type: WindowsRestart
+          name: restart-after-updates
+      distribute:
+        - type: ManagedImage
+          runOutputName: win2022-baseline-image
+          imageId: /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-imagebuilder/providers/Microsoft.Compute/images/win2022-baseline
+          location: eastus2
+      buildTimeoutInMinutes: 180
+      vmProfile:
+        vmSize: Standard_D4ds_v4
+        osDiskSizeGB: 128
