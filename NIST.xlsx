@@ -1,1 +1,247 @@
 
+"Controls Assessment
+Minnesota IT Services | partners in security"			
+			
+"IMPORTANT INSTRUCTIONS
+1. Before entering control responses, complete the ""Data Categorization"" tab. 
+2. Apply scoping filters on the far right columns. 
+3. Enter data in blue columns. Click column headers for clarification. Where a control is not, compliant include a remediation plan and name of person responsible for remediations. 
+*For the purpose of this assessment, some control details below have been modified from the original format into a simplified plain language. For detailed Policies and Standards in their published format, access the Enterprise Policies and Standards library. https://mn.gov/mnit/government/policies/security/"			
+For withdrawn IAM standards, see Privileged Account Management Standard			
+"Control
+Family"	#	"Control 
+Name"	Control Detail
+Data Categorization	3	"Record
+Retention"	"State data storage must be kept to a minimum by implementing data retention and disposal policies, procedures and processes that include at least the following:                                     
+• Handling and retaining information within systems and information output from systems in accordance with applicable federal and state laws, Executive Orders, directives, policies, regulations, standards, and operational requirements.                                                               
+• Limiting data storage amount and retention time to that which is required for legal, regulatory, and/or business requirements.                                                                                  
+• Specific retention requirements for cardholder data and other regulated data.                     
+• Processes for secure deletion of data when no longer needed.                                               
+• A quarterly process for identifying and securely deleting stored data with a Data Protection Categorization of High that exceeds defined retention."
+Data Categorization	6	Publicly Accessible Content	"Processes must be in place to ensure not public information is not published on publicly accessible systems. Processes must include:                                                                                
+• Designating individuals that are authorized to post information onto publicly accessible systems.                                                                                                                                         
+• Training authorized individuals to ensure that publicly accessible information does not contain nonpublic information.                                                                                                       
+• Reviewing the proposed content of information prior to posting onto publicly accessible systems to ensure that nonpublic information is not included.                                                     
+• Reviewing the content on publicly accessible systems for nonpublic information bi-weekly and removes such information, if discovered."
+Disaster Recovery Planning 	1	Information Technology Disaster Recovery (IT DR) Plan	An IT DR plan must be developed and maintained for critical systems. Critical systems support state agency critical priority services (priority 1 and 2 services) as defined in agency business impact analyses (BIA).  Plans must meet all formal criteria as described in State standards. The plan must be reviewed and approved by IT leadership in conjunction with business owners.
+Identity and Access Management Standard	1	Entitlements	"All access to systems or data, other than one time submission of data and read only access to data with a data protection categorization of Low, must be controlled using identification and authentication mechanisms. This access control must:
+•Assign privileges to individuals based on the individual’s job classification and function.
+•Restrict privileges to the least needed for the individual or service to perform their role.
+•Deny all access that is not explicitly granted.
+•Remove all system access not explicitly required.
+•User Access is to be reviewed every two years to verify user access is based only on current role definitions."
+Identity and Access Management Standard	2	Unique IDs	All users must be assigned a unique ID to access systems or data. IDs must not be reused until all previous access authorizations are removed from the system, including all file accesses for that identifier but not before a period of at least seven (7)years has expired.
+Identity and Access Management Standard	3	Device, Service and Application Accounts	Device, service, and application accounts must be assigned to an account owner and must not be used by individuals to access the system. These accounts and their associated passwords must be managed by the enterprise privileged account management tool. This control applies to accounts with passwords.
+Identity and Access Management Standard	4	Access Approval	"Requests to create or modify accounts and access privileges must be documented and approved by the requestor’s supervisor/manager and the data/system owner before access can be granted. Each request for access must define access needs including:
+• Systems and data that each user needs to access for their job function.
+• Level of privilege required (for example, user, administrator, etc.) for accessing resources.
+See the Privileged Account Management Standard for privileged access approval."
+Identity and Access Management Standard	5	Account Management	"The addition, deletion, and modification of user IDs, MFA factors, and other identifier objects must be restricted to authorized account administrators. 
+• The Identity and Access Management (IAM) team, in conjunction with system /data owners will establish and maintain a list of roles and their associated rights "
+Identity and Access Management Standard	6	Access Recertification	"• All accounts must be reviewed upon changes in user role and at least annually for user accounts (Requirement for privileged and service accounts has been withdrawn. See Privileged Account Management Standard.)
+• The review must validate and recertify that all access privileges are still needed and authorized. 
+• The results of the review must be documented, and unnecessary access privileges must be communicated to account administrators for removal. 
+• Review documentation must be maintained by the account administrator for at least 2 years and made available to the Enterprise Identity and Access Management team upon request."
+Identity and Access Management Standard	8	Inactive Accounts	"Inactive user accounts must be disabled and have entitlements removed after no more than 60 days of inactivity. Disabled user accounts must be deleted within 1 year. 
+• Constituents
+• Partners
+• Employees
+• Contractors
+Inactive non-user accounts (including service, system, and device accounts) must be disabled after 60 days of inactivity. Disable all accounts that are only used annually when not in use. "
+Identity and Access Management Standard	9	Revoke Entitlements	"Accounts and privileges that are no longer required must be removed or disabled within:
+•	8 hours of notification or identification of voluntary changes in access needs.
+•	1 hour of notification or identification for users that have been involuntarily terminated or for accounts with credentials that may have been lost or compromised."
+Identity and Access Management Standard	16	Group Accounts	"Group, shared or generic IDs, passwords or other authentication methods must be restricted as follows:
+• Generic user IDs must be disabled or removed.
+• Shared admin account requirement withdrawn. See Privileged Account Management Standard. Shared and generic user IDs must not be used to administer any system components.
+• Passwords and other credentials for group/role accounts must be managed in the enterprise privileged account management solution to ensure passwords are changed. "
+Identity and Access Management Standard	20	Password Encryption	All authentication credentials (such as passwords/phrases) must be cryptographically protected during transmission and storage.
+Identity and Access Management Standard	21	Password Length	"Passwords must be at least:
+• 8 characters long for user accounts and all mainframe accounts.
+• Privileged account length requirements withdrawn. See Privileged Account Management Standard.
+• 14 characters for user accounts that allow access to Federal Tax Information. "
+Identity and Access Management Standard	22	Password Complexity	"Passwords must contain at least:
+•3 of the 4 character types below for user accounts and all mainframe accounts.
+
+Withdrawn. See Privileged Account Management Standard.
+
+Character Types:
+•Lower case letters
+•Upper case letters
+•Numbers
+•Special characters
+
+For systems required to meet MARS-E requirements, require at least four (4) changed characters or be sufficiently different from previous passwords as determined by the information system (where technology allows) when new passwords are created."
+Identity and Access Management Standard	23	Minimum Password Age	Passwords/passphrases, except those created by an administrator on behalf of the user (e.g., during password resets) and those managed by a privileged account management system, must be in place for at least 1 day.
+Identity and Access Management Standard	24	Maximum Password Age	"Passwords/passphrases must be changed at least:
+• Every 30 days for mainframe accounts.
+• Every 90 days for user accounts.
+• Privileged account max age requirement withdrawn. See Privileged Account Management Standard."
+Identity and Access Management Standard	25	Password History	New passwords/phrases must be different from at least the previous 24 passwords/phrases used by that account.
+Identity and Access Management Standard	30	Mask Password	All passwords must be masked (i.e., made unreadable) when being entered to prevent unauthorized individuals from viewing the password.
+Identity and Access Management Standard	31	Account Lockout	"User and administrator accounts must be locked out after no more than:
+•	3 consecutive invalid logon attempts by that user during a 120 minute period for systems with a data protection categorization of High
+•	5 consecutive invalid logon attempts by that user during a 120 minute period for systems with data protection categorization of Moderate
+•	10 consecutive invalid logon attempts by that user during a 120 minute period for systems with data protection categorization of Low
+• For administrator account requirements see the Privileged Account Management Standard.
+The account must remain locked for at least 30 minutes or until unlocked by an administrator."
+Identity and Access Management Standard	32	Inactivity Timeout	Sessions must be automatically locked after 15 minutes of inactivity. All information previously visible on the screen must be replaced with a publicly viewable image during the session lock. The user must be required to re-authenticate to reactivate the session.
+Identity and Access Management Standard	33	Session Termination	The information system automatically terminates a user session after fifteen (15) minutes of inactivity
+Identity and Access Management Standard	34	Multiple Sessions	Systems must prevent multiple concurrent active sessions for individual user accounts. System and application accounts must be limited to the number of concurrent sessions needed for their purpose and as documented in the system security plan.
+Identity and Access Management Standard	35	System Use Notification	"A warning banner must be displayed prior to granting access to all internal networks, applications, databases, operating systems, workstations, servers and network devices. Users must explicitly acknowledge the warning banner before being allowed access to the system. The system warning banner must include the following information: 
+•	The user is accessing a restricted government information system. 
+•	System usage may be monitored, recorded and subject to audit. 
+•	Unauthorized use of the system is prohibited and may be subject to criminal and/or civil penalties. 
+•	Use of the system indicates consent to monitoring and recording. 
+For publicly accessible systems a warning banner must be displayed before allowing access. The warning banner must include:
+•	Notification of any monitoring, recording or auditing that may occur.
+•	Description of the authorized uses of the system.
+For systems containing Federal Tax Information, the warning banner must reference the civil and criminal penalty sections of Title 26 Sections 7213, 7213A and 7431"
+Identity and Access Management Standard	39	Database Access	"All access to any database containing data with a data protection categorization of High (including access by applications, administrators and all other users) must be restricted as follows:
+•	All user access to, user queries of and user actions on databases are through programmatic methods. Users must be prevented from accessing database data files at the logical data view, field, or field-value level.
+•	For databases that fall under the scope of the Payment Card Industry Data Security Standard (PCI-DSS) only database administrators have the ability to directly access or query databases. 
+•	Restrict database management utilities to only authorized database administrators
+•	Implement table-level access control.
+•	Application IDs for database applications can only be used by the applications (and not by individual users or other non-application processes)."
+Network Security Standard	5	Rule Set Review	Firewall and router rule sets must be reviewed at least annually. Firewall rules for systems in scope for PCI must be reviewed every six months.
+Network Security Standard	13	Network Placement	"All systems that store process or transmit State data must be located in network zones appropriate for their function and their protection requirements. System components that store data (such as a database) must be in an internal network zone, segregated from the DMZ and other untrusted networks.
+Key information security tools, mechanisms, and support components associated with system and security administration such as Active Directory Servers, LDAP Servers, DNS Servers, Logging Servers, Patching Servers, etc. must be isolated from other internal information system components via physically or logically separate subnets."
+Risk Management	2	Information Security Risk Assessment	"An information security risk assessment must be performed on all new and significantly changed systems, processes and third party vendors and contractors with access to State data or systems. This assessment must:
+•	Include an assessment of the likelihood and magnitude of harm, from the unauthorized access, use, disclosure, disruption, modification, or destruction of the system, process, or third party and the information it processes, stores, or transmits
+•	Document risk assessment results in a risk assessment report
+•	Be updated upon any significant changes to the system’s environment or threat landscape.
+•	Be updated at least every 3 years for all systems and processes with data protection categorization of High. Third parties supplying services must be assessed annually. 
+•	Identify critical assets, threats and vulnerabilities.
+•	Identify the likelihood and impact of the risks.
+•	Communicate risks to agency and security leadership.
+Agency leadership is responsible for prioritizing and addressing risks identified in the risk assessment.
+Risk Assessment reports must be maintained for at least 6 years."
+Risk Management	4	Vendor Security Assessments	The security practices and compliance with any applicable regulations of third parties with access to State data or systems must be reviewed prior to beginning the engagement with the third party and at least annually. This requirement includes proof of concept and proof of value engagements. Vendor Assessment reports must be maintained for at least 6 years.
+Secure Configuration Standard	43	Mask Data on Display	Data with a data protection categorization of High must be masked when displayed to ensure that only personnel with a legitimate business need can see the data.
+Secure Configuration Standard	46	Encryption in Transit	"Strong cryptography and security protocols must be used to protect State data during transmission including the following:
+•	Encrypt data with a data protection categorization of High in transmission at all times.
+•	Encrypt data with a data protection categorization of Moderate in transmission over external networks.
+•	Only accept trusted keys and certificates.
+•	Only support secure versions or configurations of the protocol in use.
+•	Use an encryption strength that is appropriate for the encryption methodology in use."
+Secure Configuration Standard	48	Encryption at Rest	All data with a data protection categorization of High must be encrypted at rest.
+Secure Configuration Standard	49	FIPS Certification	All mechanisms used to encrypt data must be FIPS 140-2 compliant and operate using the FIPS 140-2 compliant module.
+Secure Configuration Standard	50	Disk Encryption	Independent logical access controls must be used in addition to operating system and database access controls if disk encryption is used (rather than file- or column-level database encryption). Decryption keys must not be associated with user accounts.
+Secure Configuration Standard	51	Encryption Key Security	"Encryption keys must be protected against disclosure and misuse by:
+•	Restricting access to cryptographic keys to the fewest number of individuals necessary.
+•	Securely storing secret and private keys used to encrypt/decrypt State data in one (or more) of the following forms at all times:
+o	Encrypted with a key-encrypting key that is at least as strong as the data-encrypting key and that is stored separately from the data-encrypting key.
+o	Within a secure cryptographic device (such as a host security module (HSM)).
+o	As at least two full-length key components or key shares, in accordance with an industry-accepted method.
+•	Storing encryption keys in the fewest possible locations.
+•	Securely distributing encryption keys."
+Secure Configuration Standard	52	Encryption Key Management	"Encryption keys must be:
+•	Strong.
+o	At least 10 characters long.
+o	Not a dictionary word.
+o	At least one (1) upper case letter, one (1) lower case letter, one (1) number and one (1) special character.
+•	Changed at the end of their cryptoperiod, as recommended by the application vendor or key owner and based on industry best practices and guidelines.
+•	Retired or replaced when the integrity of the key has been weakened or keys are suspected of being compromised.
+•	Managed using split knowledge and dual control if manual clear-text encryption key-management operations are used."
+Secure Configuration Standard	55	Production Data in Non-production Environments	Production data must not be used in non-production environments.
+Secure Systems Development and Acquisition	5	System Security Plan	"For all State systems, a documented system security plan must be maintained that:
+• Is consistent with the organization’s enterprise architecture
+• Outlines the business function of the system.
+• Outlines the data elements the system will store, process or transmit along with each element’s data protection categorization.
+• Identifies the system components and boundary.
+• Identifies a list of specifically needed system services, ports, and network protocols
+• Identifies and describes all connections with other systems by port, protocol, service or other similar criteria.
+• Provides an overview of the security requirements for the system and describes the security controls in place or planned for meeting those requirements
+• Outlines non-local maintenance procedures.
+• Is distributed to the system owner as well as agency and security leadership.
+• Contains results of risk assessments.
+• Is reviewed and updated upon any significant changes to the system or environment.
+• Is protected from unauthorized disclosure or modification."
+Secure Systems Development and Acquisition	7	Network Diagram	A detailed network diagram must be documented and maintained that identifies all connections between the system and other networks, including wireless networks.
+Secure Systems Development and Acquisition	8	Dataflow Diagram	A detailed dataflow diagram must be documented and maintained that shows how data flows across the system and networks
+Secure Systems Development and Acquisition	11	Development Credentials	All development, test and/or custom application accounts, user IDs and passwords must be removed from the application or system prior to production deployment.
+Secure Systems Development and Acquisition	12	Separate Development and Production Environment	All development and testing must be performed in a separate environment from production. Network traffic into and out of the development and pre-production testing environment must only be permitted to facilitate system testing, and must be restricted by source and destination access control lists as well as ports and protocols.
+Secure Systems Development and Acquisition	13	Developer Access to Production	"Developers must not have access to production systems unless the access is:
+• Needed to troubleshoot a production issue.
+• Monitored at all times.
+• Only granted for the timeframe needed to address the issue."
+Secure Systems Development and Acquisition	20	Address Common Coding Vulnerabilities	Address common coding vulnerabilities in line with current industry best practices such as the Open Web Application Security Project (OWASP) Top 10 in software-development processes.
+Secure Systems Development and Acquisition	23	Code Flaw Remediation	All identified security flaws and weaknesses in the code must be addressed prior to the application production deployment.
+Security Logging and Monitoring Standard	1	Logging	"Implement automated logging on all systems to reconstruct the following events: 
+•	All actions taken by accounts with root or administrative privileges. (All system administrator commands, while logged on as system administrator).
+•	Access to all log data.
+•	All log-in attempts (successful and unsuccessful).
+•	All system log offs.
+•	Use of and changes to identification and authentication mechanisms—including but not limited to creation, modification, enabling, disabling, and removal of accounts and modifications of privileges—and all changes, additions or deletions to accounts with root or administrative privileges.
+•	Initialization, stopping or pausing of the logs.
+•	Creation and deletion of system-level objects.
+•	Setting/modifying logs and logging behavior.
+•	Setting/modifying firewall rules.
+•	Setting/modifying system configurations and parameters.
+•	All password changes.
+•	Switching accounts or running privileged actions from another account, (e.g., Linux/Unix SU or Windows RUNAS).
+•	Creation or modification of super-user groups.
+•	Subset of security administrator commands, while logged on in the security administrator role.
+•	Subset of system administrator commands, while logged on in the user role.
+•	Clearing of the audit log file.
+•	Use of identification and authentication mechanisms (e.g., user ID and password).
+•	Change of file or user permissions or privileges (e.g., use of suid/guid, chown, su).
+•	Remote access outside of the corporate network communication channels (e.g., modems, dedicated VPN) and all dial-in access to the system.
+•	Changes made to an application or database by a batch file.
+•	Application-critical record changes.
+•	Changes to database or application records, where the application has been bypassed to produce the change (via a file or other database utility).
+•	All system and data interactions concerning FTI.
+•	System and application alerts and error messages.
+•	System and application shutdown and restart.
+•	Security policy modifications.
+•	Printing sensitive information.
+•	Packet-screening denials originating from untrusted networks.
+•	Packet-screening denials originating from trusted networks.
+•	Modification of proxy services.
+•	Wireless activity."
+Security Logging and Monitoring Standard	2	Logging Individual User Access	Log all individual user access to data with a data protection categorization of High.
+Security Logging and Monitoring Standard	10	Centralized Log Management Service	"An authorized central log server must be in place that:
+•	Collects/receives log data from systems that store, process or transmit data with a data protection categorization of High.
+•	Collects/receives log data from systems/software that perform security functions including but not limited to firewalls, intrusion detection systems/intrusion prevention systems, authentication servers and anti-malware software.
+•	Collects/receives log data in as near real time as is appropriate for the log source.
+•	Provides log reduction and normalization.
+•	Does not alter the original content or time ordering of the log data.
+•	Ensures the confidentiality, integrity and availability of stored logs.
+•	Monitors the availability of log sources.
+•	Alerts authorized security personnel of inappropriate or unusual activities.
+•	Compiles audit records into a system-wide, time-correlated audit trail.
+•	Alerts authorized security personnel when allocated log storage volume is nearing maximum storage capacity."
+Security Logging and Monitoring Standard	11	Retention of Logs	"Retain log data for at least one year, with a minimum of three months immediately available for analysis.
+Log data for Federal Tax Information (FTI) must be retained for seven years.
+Log data for MARS-E related systems must be retained for at least 10 years.
+Sufficient storage capacity must be allocated to ensure log data is maintained for the duration of the retention period. The system must alert incident response personnel within 24 hours of log storage volume reaching 80 percent of the repository’s maximum audit record storage capacity."
+Threat and Vulnerability Management	2	Vulnerability Scanning	"Perform internal and external network level vulnerability scanning on all systems:
+•	Using privileged credentials for internal scans.
+•	At least monthly and when new vulnerabilities potentially affecting the systems are identified and reported.
+•	Prior to production deployment.
+•	Upon any significant change.
+Scanning procedures must demonstrate the breadth and depth of coverage of information system components scanned and vulnerabilities checked.
+A Payment Card Industry (PCI) Approved Scanning Vendor (ASV) must be used for external scans of systems in scope for PCI Data Security Standards (DSS)."
+Threat and Vulnerability Management	4	Web Application Vulnerability Scanning	"Perform web application vulnerability scans on all Internet facing web applications:
+•	Prior to production deployment.
+•	At least annually or when new vulnerabilities potentially affecting the applications are identified and reported.
+•	Upon any significant change."
+Threat and Vulnerability Management	8	Remediation and Mitigation	"Remediate or mitigate vulnerabilities identified (via scanning, penetration test, vendor alert, etc.) as follows: 
+• Severity 1: Within 7 days of discovery / notification or as directed by the State Chief Information Security Officer (CISO) or delegate. 
+• Severity 2: Within 30 days of discovery / notification. 
+• Severity 3: Within 90 days of discovery / notification. 
+• Severity 4: Within 180 days of discovery / notification.
+Once remediated or mitigated, a rescan/retest must be performed to validate the remediation/mitigation."
+Threat and Vulnerability Management	9	Configuration Compliance Scanning	"Configuration compliance scanning must be performed 
+• At least monthly 
+• Against MNIT Enterprise approved standards 
+• Against Federal and industry standards as required by the authoritative entity"
+Threat and Vulnerability Management	10	Web Application Firewall	"Web application firewall technology must be used for internet facing web sites and applications that meet any of the following criteria:
+• Citizen focused (e.g., mn.gov)
+• Deemed priority 1 or priority 2 systems
+• Require a user to log in
+• Employee focused (e.g., self-service)
+• Subject to PCI requirements
+• Have know vulnerabilities that cannot be resolved within the requirements of this standard
+• Use technology no longer supported by the vendor"
+Total			
